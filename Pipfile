@@ -8,6 +8,8 @@ fastapi = "*"
 uvicorn = "*"
 sqlalchemy = "*"
 dependency-injector = "*"
+pymysql = "*"
+aiokafka = "*"
 
 [dev-packages]
 
