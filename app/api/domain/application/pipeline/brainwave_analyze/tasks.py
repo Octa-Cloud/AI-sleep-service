@@ -27,7 +27,6 @@ class BrainwaveAnalyzeTask:
         self._logger = logging.getLogger('brainwave-analyze-analyze')
 
     async def execute(self, chunks: List[BrainwaveChunkData]) -> List[SleepLevelData]:
-        # Analyzer now returns VO list directly
         self._logger.info(f"Analyzing {len(chunks)} chunks")
         return self._analyzer.analyze(chunks)
 
