@@ -17,5 +17,5 @@ class SleepSessionRepository(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def insert(self, session: SleepSession) -> SleepSession:
+    def insert(self, session: SleepSession) -> None:
         raise NotImplementedError

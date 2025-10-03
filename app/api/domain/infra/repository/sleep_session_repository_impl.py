@@ -27,6 +27,5 @@ class SqlAlchemySleepSessionRepository(SleepSessionRepository):
         )
         return self._session.execute(stmt).scalars().first()
 
-    def insert(self, session_entity: SleepSession) -> SleepSession:
+    def insert(self, session_entity: SleepSession) -> None:
         self._session.add(session_entity)
-        return session_entity
