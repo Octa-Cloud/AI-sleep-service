@@ -16,7 +16,7 @@ from app.api.common.exception.custom.brainwave_exceptions import BrainwaveAnalyz
 from typing import Any
 
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger('brainwave-analyze-pipeline')
 
 
 class BrainwaveAnalyzePipeline:
