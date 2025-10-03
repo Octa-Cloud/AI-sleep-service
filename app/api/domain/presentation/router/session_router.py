@@ -13,14 +13,14 @@ from app.api.domain.application.service.sleep_session.sleep_session_service impo
 Router = APIRouter(prefix="/api/sleep/session", tags=["sleep-session"])
 
 def _get_session_service(request: Request) -> SleepSessionService:
-    container: Container = request.app.container  # type: ignore[attr-defined]
+    container: Container = request.app.container 
     return container.session_service()
 
-@Router.post("/")
+@Router.post("/begin")
 async def CreateSleepSession(
     request: Request,
     Service: SleepSessionService = Depends(_get_session_service),
 ):
     UserNo = int(request.state.user_no)
-    Saved = Service.begin(UserNo)
-    return ApiResponse.on_success({"sleep_session_no": Saved.sleep_session_no})
+    Service.begin(UserNo)
+    return ApiResponse.on_success()
