@@ -16,9 +16,6 @@ class BrainwaveAnalyzeUseCase:
         self._pipeline = pipeline
 
     async def execute(self, sleep_session_no: int, edf_bytes: bytes) -> None:
-        # Step 1: validate synchronously (may raise ApiException)
-        self._validator.validate(edf_bytes)
-
-        # Step 2: start pipeline asynchronously
-        self._pipeline.start(sleep_session_no, edf_bytes)
+        self._validator.validate(edf_bytes) # sync
+        self._pipeline.start(sleep_session_no, edf_bytes)  # async and return
 
