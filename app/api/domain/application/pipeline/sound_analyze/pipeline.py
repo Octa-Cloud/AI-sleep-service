@@ -4,7 +4,6 @@ import asyncio
 import logging
 from typing import Optional
 
-from dependency_injector.wiring import inject, Provide
 
 from app.api.domain.application.pipeline.sound_analyze.tasks import (
     SoundSplitTask,
@@ -13,10 +12,9 @@ from app.api.domain.application.pipeline.sound_analyze.tasks import (
 )
 
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger('sound-analyze-pipeline')
 
 class SoundAnalyzePipeline:
-    @inject
     def __init__(self) -> None:
         # Placeholder until sound services are implemented
         pass
