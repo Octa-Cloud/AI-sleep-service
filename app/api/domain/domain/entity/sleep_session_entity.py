@@ -30,7 +30,7 @@ class SleepSession(Base):
     __tablename__ = "sleep_sessions"
 
     sleep_session_no = Column(BigInteger, primary_key=True, autoincrement=True)
-    user_no = Column(BigInteger, ForeignKey("users.user_no"), nullable=False)
+    user_no = Column(BigInteger, nullable=False) # FK지만 users는 여기서 취급하지 않는 관계로 생략
     finished_at = Column(DateTime, nullable=True)
     created_at = Column(DateTime, nullable=False)
 
