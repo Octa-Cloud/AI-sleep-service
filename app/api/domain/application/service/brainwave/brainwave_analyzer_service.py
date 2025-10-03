@@ -1,11 +1,12 @@
 from __future__ import annotations
 
 import os
-from typing import List
+from typing import List, Iterable
 from datetime import timedelta
 
 import numpy as np
 import tensorflow as tf
+from concurrent.futures import ProcessPoolExecutor
 
 from app.api.domain.domain.vo.chunked_data_value_object import BrainwaveChunkData
 from app.api.domain.domain.vo.analyzed_data_value_object import SleepLevelData
@@ -57,8 +58,28 @@ class BrainwaveAnalyzerService:
 
         data_for_prediction = np.concatenate(batch_list, axis=0)
         data_for_prediction = (data_for_prediction - self._mean) / self._std
-        predictions = self._model.predict(data_for_prediction, verbose=0)
-        classes = np.argmax(predictions, axis=1).astype(int).tolist()
+        # Use process pool to parallelize prediction by chunks to avoid GIL contention
+        def _process_segment_batch(args):
+            segment_batch, mean, std, model_path = args
+            # Load model in worker to avoid TensorFlow graph clashes across processes
+            model = tf.keras.models.load_model(model_path)
+            arr = np.concatenate(segment_batch, axis=0)
+            arr = (arr - mean) / std
+            preds = model.predict(arr, verbose=0)
+            return np.argmax(preds, axis=1)
+
+        # Build per-segment batches for workers
+        segment_batches: List[np.ndarray] = batch_list
+        if len(segment_batches) == 1:
+            predictions = self._model.predict((data_for_prediction), verbose=0)
+            classes = np.argmax(predictions, axis=1).astype(int).tolist()
+        else:
+            tasks = [( [seg], self._mean, self._std, self._model_path ) for seg in segment_batches]
+            classes_arrays: List[np.ndarray] = []
+            with ProcessPoolExecutor(max_workers=int(os.getenv("BRAINWAVE_PROC_WORKERS", "2"))) as executor:
+                for result in executor.map(_process_segment_batch, tasks):
+                    classes_arrays.append(result.astype(int))
+            classes = np.concatenate(classes_arrays, axis=0).astype(int).tolist()
 
         # optional smoothing
         if len(classes) >= 3:
