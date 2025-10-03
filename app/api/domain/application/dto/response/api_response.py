@@ -1,10 +1,10 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Generic, TypeVar, Optional
 from pydantic import BaseModel, Field
 
 T = TypeVar("T")
 class ApiResponse(BaseModel, Generic[T]):
-    timestamp: datetime = Field(default_factory=datetime.utcnow)
+    timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     code: str
     message: str
     result: Optional[T] = None
