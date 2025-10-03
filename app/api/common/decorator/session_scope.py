@@ -4,14 +4,14 @@ import asyncio
 import inspect
 from functools import wraps
 
-from app.api.domain.infra.db.session import SessionLocal
+import importlib
 
 
 def session_scope(func):
     if asyncio.iscoroutinefunction(func):
         @wraps(func)
         async def _awrapper(*args, **kwargs):
-            session = SessionLocal()
+            session = importlib.import_module("app.api.domain.infra.db.session").SessionLocal()
             try:
                 # Prefer 'session' param name
                 params = inspect.signature(func).parameters
@@ -33,7 +33,7 @@ def session_scope(func):
 
     @wraps(func)
     def _swrapper(*args, **kwargs):
-        session = SessionLocal()
+        session = importlib.import_module("app.api.domain.infra.db.session").SessionLocal()
         try:
             params = inspect.signature(func).parameters
             if "session" in params and "session" not in kwargs:
