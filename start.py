@@ -1,31 +1,23 @@
-import subprocess
-import sys
-import time
+#!/usr/bin/env python3
+from __future__ import annotations
+
 import os
 
+from app.common.env import load_service_env
 
-def start():
-    procs = []
-    try:
-        if os.getenv("QUEUE_BACKEND", "local") == "local":
-            procs.append(subprocess.Popen([sys.executable, "-m", "services.fastapi.infra.queue.worker_queue"]))
-    except Exception:
-        pass
 
-    time.sleep(0.5)
+def main() -> None:
+    load_service_env()
+    host = os.getenv("HOST", "0.0.0.0")
+    port = int(os.getenv("PORT", "8080"))
 
-    procs.append(subprocess.Popen([sys.executable, "-m", "services.fastapi.worker.brainwave_analysis_worker"]))
-    procs.append(subprocess.Popen([sys.executable, "-m", "services.fastapi.worker.audio_analysis_worker"]))
-    if os.getenv("QUEUE_BACKEND", "local") == "local":
-        procs.append(subprocess.Popen([sys.executable, "-m", "services.fastapi.infra.worker.db_writer"]))
+    import uvicorn
 
-    procs.append(subprocess.Popen([sys.executable, "-m", "uvicorn", "services.fastapi.main:app", "--host", "0.0.0.0", "--port", "8000"]))
-
-    for p in procs:
-        p.wait()
+    uvicorn.run("app.api.main:app", host=host, port=port, reload=False)
 
 
 if __name__ == "__main__":
-    start()
+    main()
+
 
 
