@@ -32,7 +32,7 @@ BAD_EDF_FILES = [
 
 @pytest.mark.parametrize("file_name", OK_EDF_FILES)
 def test_brainwave_ok_variants(client: TestClient, auth_header: dict[str, str], file_name: str):
-    session_resp = client.post("/api/sleep/session/", headers=auth_header)
+    session_resp = client.post("/api/sleep/session/begin", headers=auth_header)
     assert session_resp.status_code == 200, session_resp.text
     edf_bytes = load_edf_bytes(file_name)
     files = {"file_instance": (file_name, edf_bytes, "application/octet-stream")}
@@ -49,7 +49,7 @@ def test_brainwave_ok_variants(client: TestClient, auth_header: dict[str, str], 
 
 @pytest.mark.parametrize("file_name", BAD_EDF_FILES)
 def test_brainwave_bad_variants(client: TestClient, auth_header: dict[str, str], file_name: str):
-    session_resp = client.post("/api/sleep/session/", headers=auth_header)
+    session_resp = client.post("/api/sleep/session/begin", headers=auth_header)
     assert session_resp.status_code == 200, session_resp.text
     edf_bytes = load_edf_bytes(file_name)
     files = {"file_instance": (file_name, edf_bytes, "application/octet-stream")}

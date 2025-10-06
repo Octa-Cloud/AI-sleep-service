@@ -23,7 +23,7 @@ def load_edf_bytes(filename: str) -> bytes:
 
 def create_sleep_session(client: TestClient, auth_header: dict[str, str]) -> None:
     # 업로드 전에 수면 세션을 생성합니다.
-    resp = client.post("/api/sleep/session/", headers=auth_header)
+    resp = client.post("/api/sleep/session/begin", headers=auth_header)
     assert resp.status_code == 200, resp.text
 
 
@@ -87,10 +87,10 @@ def test_scenario4_unauthorized(client: TestClient):
 @pytest.mark.usefixtures("reset_db")
 def test_scenario5_duplicate_session_creation(client: TestClient, auth_header: dict[str, str]):
     # First creation succeeds
-    resp1 = client.post("/api/sleep/session/", headers=auth_header)
+    resp1 = client.post("/api/sleep/session/begin", headers=auth_header)
     assert resp1.status_code == 200, resp1.text
     # Second creation while ongoing session exists should fail with 409
-    resp2 = client.post("/api/sleep/session/", headers=auth_header)
+    resp2 = client.post("/api/sleep/session/begin", headers=auth_header)
     assert resp2.status_code == 409, resp2.text
 
 

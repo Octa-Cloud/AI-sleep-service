@@ -18,7 +18,7 @@ create_sleep_session_api_spec = dict(
     summary='수면 세션 생성',
     description='현재 사용자에 대한 진행 중 수면 세션을 생성합니다. 세션 ID는 응답에 포함되지 않습니다.',
     method='POST',
-    path='/api/sleep/session/',
+    path='/api/sleep/session/begin',
     auth={'header': 'Authorization', 'scheme': 'Bearer <JWT>'},
     response={
         '200': {'code': 'COMMON200', 'message': '요청에 성공하였습니다', 'result': None},

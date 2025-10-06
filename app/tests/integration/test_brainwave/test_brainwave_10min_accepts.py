@@ -61,7 +61,7 @@ def load_10min_edf_slice() -> bytes:
 
 def test_brainwave_accepts_10min_edf(client: TestClient, auth_header: dict[str, str]):
     # 업로드 전에 수면 세션을 생성합니다.
-    session_resp = client.post("/api/sleep/session/", headers=auth_header)
+    session_resp = client.post("/api/sleep/session/begin", headers=auth_header)
     assert session_resp.status_code == 200, session_resp.text
     edf_bytes = load_10min_edf_slice()
     files = {"file_instance": ("sample.edf", edf_bytes, "application/octet-stream")}
