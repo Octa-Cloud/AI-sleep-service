@@ -9,7 +9,7 @@ from app.api.domain.presentation.router.brainwave_router import Router as Brainw
 from app.api.common.exception.exception_handler import register_exception_handlers
 from app.api.common.middleware.auth_middleware import AuthMiddleware
 from app.api.common.dependencies import container as di_container
-from app.api.common.kafka_consumers import Consumers
+from app.api.common.kafka_consumers import KafkaConsumerOrchestrator
 from app.api.common.security.token_provider import TokenProvider
 from app.common import config
 
@@ -30,7 +30,7 @@ register_exception_handlers(app)
 app.include_router(SessionRouter)
 app.include_router(BrainwaveRouter)
 
-_consumers = Consumers(container=di_container)
+_consumers = KafkaConsumerOrchestrator(container=di_container)
 
 @app.on_event("startup")
 async def _start_consumers() -> None:
