@@ -47,6 +47,13 @@ def _set_env() -> None:
     os.environ.setdefault("JWT_BEARER_PREFIX", "Bearer")
     os.environ.setdefault("JWT_ID_CLAIM", "id")
 
+    # Disable Kafka for standard tests; E2E Kafka tests opt-in via KAFKA_E2E=1
+    os.environ.setdefault("KAFKA_ENABLED", "0")
+    os.environ.setdefault("KAFKA_PROTOBUF_ENABLED", "1")
+    # If running Kafka E2E, turn Kafka on
+    if os.getenv("KAFKA_E2E", "0") == "1":
+        os.environ["KAFKA_ENABLED"] = "1"
+
 
 # Note: MySQL auto-start via docker compose was removed on purpose. Use the
 # scripts under app/tests/environment/mysql/ to manage the DB lifecycle.
@@ -129,9 +136,10 @@ def client(test_session_factory: sessionmaker[Session]) -> Iterator[TestClient]:
             return None
 
     container = getattr(app, "container", None) or app.state.container
-    # Override brainwave use case factory in our simple container
-    if hasattr(container, "brainwave_usecase_factory"):
-        container.brainwave_usecase_factory = lambda: _DummyUseCase()
+    # Override brainwave use case factory only when not running Kafka E2E
+    if os.getenv("KAFKA_E2E", "0") != "1":
+        if hasattr(container, "brainwave_usecase_factory"):
+            container.brainwave_usecase_factory = lambda: _DummyUseCase()
 
     with TestClient(app) as c:
         yield c

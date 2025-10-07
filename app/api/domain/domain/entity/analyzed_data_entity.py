@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import datetime
 from enum import Enum
 
-from sqlalchemy import BigInteger, Column, DateTime, Enum as SAEnum, ForeignKey, CheckConstraint
+from sqlalchemy import BigInteger, Column, DateTime, Enum as SAEnum, ForeignKey, CheckConstraint, UniqueConstraint
 from sqlalchemy.dialects.mysql import SMALLINT as MYSQL_SMALLINT
 
 from app.api.domain.domain.entity.base import Base
@@ -37,6 +37,7 @@ class SleepLevel(Base):
 
     __table_args__ = (
         CheckConstraint("level >= 0 and level <= 6", name="chk_analyzed_sleep_levels_level"),
+        UniqueConstraint("sleep_session_no", "recorded_at", name="uq_analyzed_sleep_levels_session_time"),
     )
 
 
