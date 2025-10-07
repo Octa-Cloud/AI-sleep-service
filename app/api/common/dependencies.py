@@ -10,7 +10,6 @@ from app.api.domain.application.service.brainwave.brainwave_data_validator_servi
 from app.api.domain.application.service.brainwave.brainwave_analyzer_service import BrainwaveAnalyzerService
 from app.api.domain.application.service.brainwave.brainwave_chunk_splitter_service import BrainwaveChunkSplitterService
 from app.api.domain.application.service.brainwave.sleep_level_service import SleepLevelService
-from app.api.domain.application.pipeline.brainwave_analyze.pipeline import BrainwaveAnalyzePipeline
 from app.api.domain.application.usecase.brainwave.brainwave_analyze_use_case import BrainwaveAnalyzeUseCase
 from app.api.domain.application.service.sleep_session.sleep_session_service import SleepSessionService
 
@@ -37,16 +36,20 @@ class Container:
             sleep_level_repo_factory=self.sleep_level_repository_factory,
         )
 
-        self.brainwave_pipeline = BrainwaveAnalyzePipeline(
-            splitter=self.brainwave_splitter,
-            analyzer=self.brainwave_analyzer,
-            sleep_level_service=self.brainwave_sleeplevel,
-        )
+        # Kafka producer client (to be implemented in app/common/kafka)
+        try:
+            from app.common.kafka.producer import KafkaProducerClient  # type: ignore
+            kafka_bootstrap = os.getenv("KAFKA_BROKERS", "localhost:9092")
+            self.kafka_producer = KafkaProducerClient(bootstrap_servers=kafka_bootstrap)
+        except Exception:
+            self.kafka_producer = None  # type: ignore
+        self.topic_brainwave_input_raw = os.getenv("TOPIC_BRAINWAVE_INPUT_RAW", "brainwave.input.raw")
 
         # Factories for higher-level components
         self.brainwave_usecase_factory = lambda: BrainwaveAnalyzeUseCase(
             validator=self.brainwave_validator,
-            pipeline=self.brainwave_pipeline,
+            producer=self.kafka_producer,
+            topic_input_raw=self.topic_brainwave_input_raw,
         )
 
         self.sleep_session_service_factory = lambda: SleepSessionService(
