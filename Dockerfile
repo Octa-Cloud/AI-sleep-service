@@ -6,7 +6,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . /app
 
-RUN /bin/bash /app/scripts/gen_protos.sh
+RUN python /app/scripts/gen_protos.py
 
 ENV PYTHONUNBUFFERED=1
 
