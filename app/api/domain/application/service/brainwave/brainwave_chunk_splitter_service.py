@@ -6,6 +6,10 @@ from typing import List
 from datetime import datetime, timedelta
 import pyedflib
 import numpy as np
+try:
+    from scipy.signal import butter, filtfilt, firwin  # type: ignore
+except Exception:
+    butter = filtfilt = firwin = None  # type: ignore
 
 from app.api.common.exception.custom.brainwave_exceptions import (
     BrainwaveFormatValidationFailApiException,
@@ -49,13 +53,29 @@ class BrainwaveChunkSplitterService:
 
                 data_fpz = reader.readSignal(idx_fpz)
                 data_pz = reader.readSignal(idx_pz)
-                data = np.vstack([data_fpz, data_pz])  # shape: (2, n_times)
+                data = np.vstack([data_fpz, data_pz]).astype(np.float32)  # shape: (2, n_times)
+
+                # Optional band-pass filter 0.5–30 Hz (default butter; set BRAINWAVE_FILTER_IMPL=fir to use firwin)
+                if filtfilt is not None:
+                    impl = os.getenv("BRAINWAVE_FILTER_IMPL", "butter").lower()
+                    low, high = 0.5, 30.0
+                    nyq = 0.5 * sfreq
+                    if impl == "fir" and firwin is not None:
+                        taps = firwin(numtaps=513, cutoff=[low / nyq, high / nyq], pass_zero=False)
+                        for ch in range(data.shape[0]):
+                            data[ch, :] = filtfilt(taps, [1.0], data[ch, :])
+                    elif butter is not None:
+                        b, a = butter(4, [low / nyq, high / nyq], btype="bandpass")
+                        for ch in range(data.shape[0]):
+                            data[ch, :] = filtfilt(b, a, data[ch, :], method="gust")
 
             finally:
                 reader.close()
 
             epoch_sec = 30
-            segment_sec = 10 * 60
+            # Option to emit whole file as a single chunk (for parity with offline script)
+            whole_file = os.getenv("BRAINWAVE_SPLIT_WHOLE_FILE", "0") == "1"
+            segment_sec = (data.shape[1] / sfreq) if whole_file else (10 * 60)
             samples_per_segment = int(segment_sec * sfreq)
 
             chunks: List[BrainwaveChunkData] = []
