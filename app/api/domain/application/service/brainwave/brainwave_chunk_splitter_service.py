@@ -4,12 +4,11 @@ import os
 import tempfile
 from typing import List
 from datetime import datetime, timedelta
-import pyedflib
 import numpy as np
 try:
-    from scipy.signal import butter, filtfilt, firwin  # type: ignore
+    import mne  # type: ignore
 except Exception:
-    butter = filtfilt = firwin = None  # type: ignore
+    mne = None  # type: ignore
 
 from app.api.common.exception.custom.brainwave_exceptions import (
     BrainwaveFormatValidationFailApiException,
@@ -19,7 +18,7 @@ from app.api.domain.domain.vo.chunked_data_value_object import BrainwaveChunkDat
 
 class BrainwaveChunkSplitterService:
     def split(self, edf_bytes: bytes) -> List[BrainwaveChunkData]:
-        if pyedflib is None:
+        if mne is None:
             raise BrainwaveFormatValidationFailApiException()
 
         tmp_path = None
@@ -29,51 +28,27 @@ class BrainwaveChunkSplitterService:
                 tmp.flush()
                 tmp_path = tmp.name
 
-            reader = pyedflib.EdfReader(tmp_path)
+            # Read EDF using MNE (to match offline script pipeline)
+            raw = mne.io.read_raw_edf(tmp_path, preload=True, verbose=False)
+            # Pick channels and apply band-pass filter 0.5–30 Hz (FIR)
             try:
-                labels = list(reader.getSignalLabels())
-                # EDF start datetime (UTC naive)
-                startdate = reader.getStartdatetime()  # datetime
-                # Pick exact case-sensitive channels, with optional 'EEG ' prefix
-                def pick(label: str) -> int:
-                    arr = reader.getSignalLabels()
-                    for idx, lab in enumerate(arr):
-                        name = lab.strip()
-                        if name.startswith("EEG "):
-                            name = name[4:]
-                        if name == label:
-                            return idx
-                    raise BrainwaveFormatValidationFailApiException()
+                raw.pick_channels(["EEG Fpz-Cz", "EEG Pz-Oz"])  # matches script labels
+            except Exception:
+                # Fallback: try without EEG prefix
+                raw.pick_channels(["Fpz-Cz", "Pz-Oz"])  # type: ignore[arg-type]
+            raw.filter(l_freq=0.5, h_freq=30.0, fir_design='firwin', verbose=False)
 
-                idx_fpz = pick("Fpz-Cz")
-                idx_pz = pick("Pz-Oz")
-
-                sfreq = float(reader.getSampleFrequency(idx_fpz))
-                n_times = int(reader.getNSamples()[idx_fpz])
-
-                data_fpz = reader.readSignal(idx_fpz)
-                data_pz = reader.readSignal(idx_pz)
-                data = np.vstack([data_fpz, data_pz]).astype(np.float32)  # shape: (2, n_times)
-
-                # Optional band-pass filter 0.5–30 Hz (default butter; set BRAINWAVE_FILTER_IMPL=fir to use firwin)
-                if filtfilt is not None:
-                    impl = os.getenv("BRAINWAVE_FILTER_IMPL", "butter").lower()
-                    low, high = 0.5, 30.0
-                    nyq = 0.5 * sfreq
-                    if impl == "fir" and firwin is not None:
-                        taps = firwin(numtaps=513, cutoff=[low / nyq, high / nyq], pass_zero=False)
-                        for ch in range(data.shape[0]):
-                            data[ch, :] = filtfilt(taps, [1.0], data[ch, :])
-                    elif butter is not None:
-                        b, a = butter(4, [low / nyq, high / nyq], btype="bandpass")
-                        for ch in range(data.shape[0]):
-                            data[ch, :] = filtfilt(b, a, data[ch, :], method="gust")
-
-            finally:
-                reader.close()
+            sfreq = float(raw.info.get('sfreq') or 0.0)
+            if sfreq <= 0:
+                raise BrainwaveFormatValidationFailApiException()
+            data = raw.get_data().astype(np.float32)  # (2, n_samples)
+            startdate = raw.info.get('meas_date')
+            if not isinstance(startdate, datetime):
+                # best-effort: treat as epoch 0
+                startdate = datetime.utcnow()
 
             epoch_sec = 30
-            # Option to emit whole file as a single chunk (for parity with offline script)
+            # Option: emit whole file as a single chunk (parity with offline)
             whole_file = os.getenv("BRAINWAVE_SPLIT_WHOLE_FILE", "0") == "1"
             segment_sec = (data.shape[1] / sfreq) if whole_file else (10 * 60)
             samples_per_segment = int(segment_sec * sfreq)
