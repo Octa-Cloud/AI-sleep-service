@@ -1,0 +1,5 @@
+# Domain entity package
+
+
+
+

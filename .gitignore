@@ -1,0 +1,20 @@
+.pytest_cache/
+venv/
+
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.pdb
+*.pkl
+*.egg
+*.egg-info/
+.eggs/
+
+
+.DS_Store
+.env
+
+# Generated protobuf stubs
+app/common/kafka/dto/*_pb2.py
+app/common/kafka/dto/*_pb2.pyi
