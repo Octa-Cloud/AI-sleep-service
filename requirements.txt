@@ -16,3 +16,4 @@ httpx>=0.25
 protobuf>=4.25.0
 grpcio-tools>=1.64.0
 scipy>=1.11
+mne>=1.5.0
