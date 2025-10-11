@@ -16,12 +16,26 @@ class AsyncKafkaConsumerRunner:
         self._dlq_topic = dlq_topic
         self._retry_max_attempts = retry_max_attempts if retry_max_attempts is not None else int(os.getenv("RETRY_MAX_ATTEMPTS", "3"))
         self._retry_backoff_ms = retry_backoff_ms if retry_backoff_ms is not None else int(os.getenv("RETRY_BACKOFF_MS", "200"))
+        
+        # SASL/SSL configuration for Confluent Cloud
+        consumer_config = {
+            "bootstrap_servers": self._bootstrap,
+            "group_id": self._group,
+            "enable_auto_commit": False,
+            "auto_offset_reset": "earliest",
+        }
+        
+        # Add SASL authentication if configured
+        security_protocol = os.getenv("KAFKA_SECURITY_PROTOCOL")
+        if security_protocol:
+            consumer_config["security_protocol"] = security_protocol
+            consumer_config["sasl_mechanism"] = os.getenv("KAFKA_SASL_MECHANISM", "PLAIN")
+            consumer_config["sasl_plain_username"] = os.getenv("KAFKA_SASL_USERNAME", "")
+            consumer_config["sasl_plain_password"] = os.getenv("KAFKA_SASL_PASSWORD", "")
+        
         self._consumer = AIOKafkaConsumer(
             self._topic,
-            bootstrap_servers=self._bootstrap,
-            group_id=self._group,
-            enable_auto_commit=False,
-            auto_offset_reset="earliest",
+            **consumer_config
         )
         self._task: asyncio.Task | None = None
         from app.common.kafka.producer import KafkaProducerClient

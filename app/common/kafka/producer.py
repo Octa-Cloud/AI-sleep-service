@@ -11,7 +11,22 @@ class KafkaProducerClient:
     def __init__(self, bootstrap_servers: str) -> None:
         self._bootstrap = bootstrap_servers
         self._loop = asyncio.get_event_loop()
-        self._producer = AIOKafkaProducer(bootstrap_servers=self._bootstrap, loop=self._loop)
+        
+        # SASL/SSL configuration for Confluent Cloud
+        producer_config = {
+            "bootstrap_servers": self._bootstrap,
+            "loop": self._loop
+        }
+        
+        # Add SASL authentication if configured
+        security_protocol = os.getenv("KAFKA_SECURITY_PROTOCOL")
+        if security_protocol:
+            producer_config["security_protocol"] = security_protocol
+            producer_config["sasl_mechanism"] = os.getenv("KAFKA_SASL_MECHANISM", "PLAIN")
+            producer_config["sasl_plain_username"] = os.getenv("KAFKA_SASL_USERNAME", "")
+            producer_config["sasl_plain_password"] = os.getenv("KAFKA_SASL_PASSWORD", "")
+        
+        self._producer = AIOKafkaProducer(**producer_config)
         if not self._producer._closed:  # type: ignore[attr-defined]
             pass
 
