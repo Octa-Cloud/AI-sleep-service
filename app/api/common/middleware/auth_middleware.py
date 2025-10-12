@@ -13,7 +13,7 @@ class AuthMiddleware:
     def __init__(self, app, token_provider: TokenProvider | None = None) -> None:
         self.app = app
         self.token_provider = token_provider or TokenProvider()
-        self.whitelist = []
+        self.whitelist = ["/health", "/docs", "/openapi.json", "/redoc"]
 
     async def __call__(self, scope, receive, send):
         if scope["type"] != "http":
@@ -21,6 +21,11 @@ class AuthMiddleware:
             return
 
         request = Request(scope, receive=receive)
+        
+        # Skip authentication for whitelisted paths
+        if request.url.path in self.whitelist:
+            await self.app(scope, receive, send)
+            return
 
         auth_header = request.headers.get(self.token_provider._header_name)
         try:

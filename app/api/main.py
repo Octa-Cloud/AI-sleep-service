@@ -27,6 +27,11 @@ app.state.container = di_container
 app.add_middleware(AuthMiddleware, token_provider=TokenProvider())
 register_exception_handlers(app)
 
+# Health check endpoint (no authentication required)
+@app.get("/health")
+async def health_check():
+    return {"status": "healthy"}
+
 app.include_router(SessionRouter)
 app.include_router(BrainwaveRouter)
 
