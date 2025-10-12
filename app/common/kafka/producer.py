@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import os
+import ssl
 from typing import Any
 import asyncio
 from aiokafka import AIOKafkaProducer
@@ -25,6 +26,11 @@ class KafkaProducerClient:
             producer_config["sasl_mechanism"] = os.getenv("KAFKA_SASL_MECHANISM", "PLAIN")
             producer_config["sasl_plain_username"] = os.getenv("KAFKA_SASL_USERNAME", "")
             producer_config["sasl_plain_password"] = os.getenv("KAFKA_SASL_PASSWORD", "")
+            
+            # SSL context for SASL_SSL
+            if "SSL" in security_protocol:
+                ssl_context = ssl.create_default_context()
+                producer_config["ssl_context"] = ssl_context
         
         self._producer = AIOKafkaProducer(**producer_config)
         if not self._producer._closed:  # type: ignore[attr-defined]

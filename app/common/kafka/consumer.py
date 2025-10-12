@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import json
 import os
+import ssl
 from typing import Any, Awaitable, Callable
 from aiokafka import AIOKafkaConsumer
 
@@ -32,6 +33,11 @@ class AsyncKafkaConsumerRunner:
             consumer_config["sasl_mechanism"] = os.getenv("KAFKA_SASL_MECHANISM", "PLAIN")
             consumer_config["sasl_plain_username"] = os.getenv("KAFKA_SASL_USERNAME", "")
             consumer_config["sasl_plain_password"] = os.getenv("KAFKA_SASL_PASSWORD", "")
+            
+            # SSL context for SASL_SSL
+            if "SSL" in security_protocol:
+                ssl_context = ssl.create_default_context()
+                consumer_config["ssl_context"] = ssl_context
         
         self._consumer = AIOKafkaConsumer(
             self._topic,
