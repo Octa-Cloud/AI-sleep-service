@@ -52,7 +52,7 @@ def test_api_upload_end_to_end(auth_header_e2e):
     headers = auth_header_e2e
 
     # create session
-    r = client.post("/api/sleep/session/begin", headers=headers)
+    r = client.post("/api/analysis/session", headers=headers)
     assert r.status_code == 200, r.text
 
     before = _count_levels()
@@ -60,7 +60,7 @@ def test_api_upload_end_to_end(auth_header_e2e):
     # upload edf
     edf = _load_sample()
     files = {"file_instance": ("file.edf", io.BytesIO(edf), "application/octet-stream")}
-    r2 = client.patch("/api/sleep/data/brainwave/", headers=headers, files=files)
+    r2 = client.patch("/api/analysis/brainwave", headers=headers, files=files)
     assert r2.status_code == 200, r2.text
 
     # poll db up to 60s

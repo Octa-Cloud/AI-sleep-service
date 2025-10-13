@@ -10,7 +10,7 @@ from app.api.domain.application.service.sleep_session.sleep_session_service impo
 from app.api.common.exception.custom.session_exceptions import SleepSessionNotFoundApiException
 
 
-Router = APIRouter(prefix="/api/sleep/data/brainwave", tags=["brainwave-data"])
+Router = APIRouter(prefix="/api/analysis/brainwave", tags=["brainwave-data"])
 
 
 def _get_brainwave_usecase(request: Request) -> BrainwaveAnalyzeUseCase:
@@ -21,7 +21,7 @@ def _get_session_service(request: Request) -> SleepSessionService:
     container: Container = request.app.container  # type: ignore[attr-defined]
     return container.session_service()
 
-@Router.patch("/")
+@Router.patch("")
 async def SubmitBrainwave(
     file_instance: Annotated[UploadFile, File(...)],
     use_case: BrainwaveAnalyzeUseCase = Depends(_get_brainwave_usecase),

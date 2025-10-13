@@ -45,7 +45,7 @@ def create_session(url: str, token: Optional[str]) -> int:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="Create a sleep session via API")
-    parser.add_argument("--url", default="http://localhost:8080/api/sleep/session/begin", help="Session create endpoint URL")
+    parser.add_argument("--url", default="http://localhost:8080/api/analysis/session", help="Session create endpoint URL")
     parser.add_argument("--token", dest="token", default=None, help="Bearer token. If omitted, tries to mint from JWT_* envs")
     parser.add_argument("--user-no", dest="user_no", type=int, default=1, help="User no for token minting if --token not provided")
     parser.add_argument("--env-file", dest="env_file", default=None, help="Optional path to .env to load before minting")

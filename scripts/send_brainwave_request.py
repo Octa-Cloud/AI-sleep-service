@@ -49,7 +49,7 @@ def send_request(url: str, edf_path: Path, session_no: int, token: Optional[str]
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="Send brainwave EDF to API (multipart/form-data)")
-    parser.add_argument("--url", default="http://localhost:8080/api/sleep/data/brainwave/", help="Endpoint URL")
+    parser.add_argument("--url", default="http://localhost:8080/api/analysis/brainwave", help="Endpoint URL")
     parser.add_argument("--file", dest="file", help="Path to EDF file")
     parser.add_argument("--session", dest="session", type=int, default=1, help="Sleep session no")
     parser.add_argument("--token", dest="token", default=None, help="Bearer token. If omitted, tries to mint from JWT_* envs")

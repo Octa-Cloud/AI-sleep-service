@@ -51,14 +51,14 @@ def test_ok_edfs_return_200_and_persist(auth_header_e2e, file_name: str) -> None
     client = httpx.Client(base_url=_api_base(), timeout=30.0)
 
     # create session
-    r = client.post("/api/sleep/session/begin", headers=auth_header_e2e)
+    r = client.post("/api/analysis/session", headers=auth_header_e2e)
     assert r.status_code == 200, r.text
 
     before = _count_levels()
 
     edf = _load_edf_bytes(file_name)
     files = {"file_instance": (file_name, io.BytesIO(edf), "application/octet-stream")}
-    r2 = client.patch("/api/sleep/data/brainwave/", headers=auth_header_e2e, files=files)
+    r2 = client.patch("/api/analysis/brainwave", headers=auth_header_e2e, files=files)
     assert r2.status_code == 200, r2.text
 
     # poll db up to 60s
@@ -78,12 +78,12 @@ def test_bad_edfs_return_4xx(auth_header_e2e, file_name: str) -> None:
     client = httpx.Client(base_url=_api_base(), timeout=30.0)
 
     # create session
-    r = client.post("/api/sleep/session/begin", headers=auth_header_e2e)
+    r = client.post("/api/analysis/session", headers=auth_header_e2e)
     assert r.status_code == 200, r.text
 
     edf = _load_edf_bytes(file_name)
     files = {"file_instance": (file_name, io.BytesIO(edf), "application/octet-stream")}
-    r2 = client.patch("/api/sleep/data/brainwave/", headers=auth_header_e2e, files=files)
+    r2 = client.patch("/api/analysis/brainwave", headers=auth_header_e2e, files=files)
     assert r2.status_code in (400, 422), r2.text
 
 

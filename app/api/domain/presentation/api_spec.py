@@ -3,7 +3,7 @@ analyze_brainwave_chunk_api_spec = dict(
     summary='뇌파 데이터 업로드',
     description='10분 길이의 EDF 데이터를 업로드하면 즉시 수락 응답을 반환합니다. 분석/저장은 비동기로 처리됩니다.',
     method='PATCH',
-    path='/api/sleep/data/brainwave/',
+    path='/api/analysis/brainwave',
     request={'content-type': 'multipart/form-data', 'fields': {'file_instance': 'EDF binary file'}},
     auth={'header': 'Authorization', 'scheme': 'Bearer <JWT>'},
     response={
@@ -18,7 +18,7 @@ create_sleep_session_api_spec = dict(
     summary='수면 세션 생성',
     description='현재 사용자에 대한 진행 중 수면 세션을 생성합니다. 세션 ID는 응답에 포함되지 않습니다.',
     method='POST',
-    path='/api/sleep/session/begin',
+    path='/api/analysis/session',
     auth={'header': 'Authorization', 'scheme': 'Bearer <JWT>'},
     response={
         '200': {'code': 'COMMON200', 'message': '요청에 성공하였습니다', 'result': None},

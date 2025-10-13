@@ -10,13 +10,13 @@ from app.api.common.dependencies import Container
 from app.api.domain.application.service.sleep_session.sleep_session_service import SleepSessionService
 
 
-Router = APIRouter(prefix="/api/sleep/session", tags=["sleep-session"])
+Router = APIRouter(prefix="/api/analysis/session", tags=["sleep-session"])
 
 def _get_session_service(request: Request) -> SleepSessionService:
     container: Container = request.app.container 
     return container.session_service()
 
-@Router.post("/begin")
+@Router.post("")
 async def CreateSleepSession(
     request: Request,
     Service: SleepSessionService = Depends(_get_session_service),
