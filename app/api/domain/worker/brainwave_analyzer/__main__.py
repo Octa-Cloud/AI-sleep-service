@@ -30,12 +30,31 @@ async def run() -> int:
     if pb is None:
         raise RuntimeError("Protobuf stubs not generated. Run scripts/gen_protos.sh before starting the worker.")
 
+    # SASL/SSL configuration for Confluent Cloud
+    import ssl
+    consumer_config = {
+        "bootstrap_servers": brokers,
+        "group_id": group_id,
+        "enable_auto_commit": False,
+        "auto_offset_reset": "earliest",
+    }
+    
+    # Add SASL authentication if configured
+    security_protocol = os.getenv("KAFKA_SECURITY_PROTOCOL")
+    if security_protocol:
+        consumer_config["security_protocol"] = security_protocol
+        consumer_config["sasl_mechanism"] = os.getenv("KAFKA_SASL_MECHANISM", "PLAIN")
+        consumer_config["sasl_plain_username"] = os.getenv("KAFKA_SASL_USERNAME", "")
+        consumer_config["sasl_plain_password"] = os.getenv("KAFKA_SASL_PASSWORD", "")
+        
+        # SSL context for SASL_SSL
+        if "SSL" in security_protocol:
+            ssl_context = ssl.create_default_context()
+            consumer_config["ssl_context"] = ssl_context
+    
     consumer = AIOKafkaConsumer(
         topic_in,
-        bootstrap_servers=brokers,
-        group_id=group_id,
-        enable_auto_commit=False,
-        auto_offset_reset="earliest",
+        **consumer_config
     )
     producer = KafkaProducerClient(brokers)
     analyzer = BrainwaveAnalyzerService()
