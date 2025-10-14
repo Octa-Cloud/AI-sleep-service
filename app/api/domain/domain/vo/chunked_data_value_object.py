@@ -13,3 +13,10 @@ class BrainwaveChunkData:
     sampling_rate_hz: float
 
 
+@dataclass(frozen=True)
+class SoundChunkData:
+    data: bytes
+    start_at: datetime  # segment start time (UTC aware)
+    sampling_rate_hz: float
+
+
