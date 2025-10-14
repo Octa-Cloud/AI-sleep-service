@@ -59,9 +59,12 @@ class KafkaProducerClient:
         async def _produce():
             try:
                 await self._producer.send_and_wait(topic, value=value_bytes, key=key.encode("utf-8"), headers=hdrs)  # type: ignore[arg-type]
-            except Exception:
-                # swallow send error; upstream will retry via consumer DLQ or aggregation loop
-                pass
+                print(f"Successfully sent message to topic {topic} with key {key}")
+            except Exception as e:
+                # Log send error instead of swallowing it
+                print(f"Failed to send message to topic {topic} with key {key}: {e}")
+                import traceback
+                traceback.print_exc()
         self._loop.create_task(_produce())
 
 
