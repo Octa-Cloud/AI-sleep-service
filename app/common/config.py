@@ -33,11 +33,16 @@ TOPIC_BRAINWAVE_SPLIT_EPOCHS = env_str("TOPIC_BRAINWAVE_SPLIT_EPOCHS", "brainwav
 TOPIC_BRAINWAVE_ANALYZED_EPOCH = env_str("TOPIC_BRAINWAVE_ANALYZED_EPOCH", "brainwave.analyzed.epoch")
 TOPIC_BRAINWAVE_PERSIST_REQUESTS = env_str("TOPIC_BRAINWAVE_PERSIST_REQUESTS", "brainwave.persist.requests")
 
-# Consumer groups
-GROUP_BRAINWAVE_SPLITTER = env_str("GROUP_BRAINWAVE_SPLITTER", "brainwave-splitter")
-GROUP_BRAINWAVE_ANALYZER = env_str("GROUP_BRAINWAVE_ANALYZER", "brainwave-analyzer")
-GROUP_BRAINWAVE_AGGREGATOR = env_str("GROUP_BRAINWAVE_AGGREGATOR", "brainwave-aggregator")
-GROUP_BRAINWAVE_DB_WRITER = env_str("GROUP_BRAINWAVE_DB_WRITER", "brainwave-db-writer")
+# Consumer groups - Pod별로 고유한 Group ID 사용
+def get_pod_unique_group_id(base_name: str) -> str:
+    """Pod별로 고유한 Consumer Group ID 생성"""
+    pod_name = os.getenv("HOSTNAME", "unknown")
+    return f"{base_name}-{pod_name}"
+
+GROUP_BRAINWAVE_SPLITTER = get_pod_unique_group_id(env_str("GROUP_BRAINWAVE_SPLITTER", "brainwave-splitter"))
+GROUP_BRAINWAVE_ANALYZER = get_pod_unique_group_id(env_str("GROUP_BRAINWAVE_ANALYZER", "brainwave-analyzer"))
+GROUP_BRAINWAVE_AGGREGATOR = get_pod_unique_group_id(env_str("GROUP_BRAINWAVE_AGGREGATOR", "brainwave-aggregator"))
+GROUP_BRAINWAVE_DB_WRITER = get_pod_unique_group_id(env_str("GROUP_BRAINWAVE_DB_WRITER", "brainwave-db-writer"))
 
 # Retry
 RETRY_MAX_ATTEMPTS = env_int("RETRY_MAX_ATTEMPTS", 3)
