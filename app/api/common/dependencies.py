@@ -12,6 +12,10 @@ from app.api.domain.application.service.brainwave.brainwave_chunk_splitter_servi
 from app.api.domain.application.service.brainwave.sleep_level_service import SleepLevelService
 from app.api.domain.application.usecase.brainwave.brainwave_analyze_use_case import BrainwaveAnalyzeUseCase
 from app.api.domain.application.service.sleep_session.sleep_session_service import SleepSessionService
+from app.api.domain.application.service.sound.sound_data_validator_service import SoundDataValidatorService
+from app.api.domain.application.usecase.sound.sound_analyze_use_case import SoundAnalyzeUseCase
+from app.api.domain.application.service.sound.sound_event_service import SoundEventService
+from app.api.domain.infra.repository.sound_event_repository_impl import SqlAlchemySoundEventRepository
 
 
 class Container:
@@ -44,12 +48,25 @@ class Container:
         except Exception:
             self.kafka_producer = None  # type: ignore
         self.topic_brainwave_input_raw = os.getenv("TOPIC_BRAINWAVE_INPUT_RAW", "brainwave.input.raw")
+        self.topic_sound_input_raw = os.getenv("TOPIC_SOUND_INPUT_RAW", "sound.input.raw")
+
+        # Sound services
+        self.sound_validator = SoundDataValidatorService()
+        self.sound_event_service = SoundEventService(
+            repo_factory=lambda **kw: SqlAlchemySoundEventRepository(session=kw.get("session", self.session_factory()))
+        )
 
         # Factories for higher-level components
         self.brainwave_usecase_factory = lambda: BrainwaveAnalyzeUseCase(
             validator=self.brainwave_validator,
             producer=self.kafka_producer,
             topic_input_raw=self.topic_brainwave_input_raw,
+        )
+
+        self.sound_usecase_factory = lambda: SoundAnalyzeUseCase(
+            validator=self.sound_validator,
+            producer=self.kafka_producer,
+            topic_input_raw=self.topic_sound_input_raw,
         )
 
         self.sleep_session_service_factory = lambda: SleepSessionService(
@@ -62,6 +79,9 @@ class Container:
 
     def session_service(self) -> SleepSessionService:
         return self.sleep_session_service_factory()
+
+    def sound_usecase(self) -> SoundAnalyzeUseCase:
+        return self.sound_usecase_factory()
 
 
 # Global container instance
