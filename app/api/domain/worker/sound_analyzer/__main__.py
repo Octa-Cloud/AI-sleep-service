@@ -42,9 +42,7 @@ async def run() -> int:
                 from app.common.kafka.dto import sound_pb2 as pb  # type: ignore
                 split = pb.SoundSplitChunk()
                 split.ParseFromString(value)
-                logger.debug(
-                    f"analyzer_recv trace_id={split.trace_id} session_no={int(split.session_no)} start_ms={int(split.start_ms)} size={len(split.data)} idx={int(hdrs_in.get('epoch_index','0'))}/{int(hdrs_in.get('epoch_end_index','0'))}"
-                )
+                logger.info("recv")
 
                 # Base time: validation-complete timestamp + chunk start offset
                 base_ms = int(hdrs_in.get("recorded_at_ms", "0") or 0)
@@ -84,7 +82,7 @@ async def run() -> int:
                     out_bytes = evt.SerializeToString()
                     try:
                         await producer.send_and_wait(out_topic, key=split.trace_id.encode(), value=out_bytes, headers=headers)  # type: ignore[arg-type]
-                        logger.info(f"event={ev.event.value}")
+                        logger.info("sent")
                     except Exception as e:
                         logger.exception(
                             "analyzer_send_error",
@@ -98,7 +96,6 @@ async def run() -> int:
                                 "payload_len": len(out_bytes),
                             },
                         )
-                logger.debug(f"analyzer_sent_summary trace_id={split.trace_id} session_no={int(split.session_no)} events={len(events)}")
                 await consumer.commit()
             except asyncio.CancelledError:
                 logger.info("analyzer_cancelled")
