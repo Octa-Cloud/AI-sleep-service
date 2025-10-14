@@ -22,6 +22,8 @@ class BrainwaveAggregatorHandler(KafkaMessageHandler):
         self._buf: Dict[str, Dict[str, Any]] = {}
 
     def __call__(self, value: bytes, headers: dict[str, str]) -> None:
+        print(f"Aggregator received message: trace_id={headers.get('trace_id', 'unknown')}")
+        
         if self._use_proto:
             obj = pb.BrainwaveAnalyzedEpoch()  # type: ignore[attr-defined]
             obj.ParseFromString(value)
@@ -42,8 +44,12 @@ class BrainwaveAggregatorHandler(KafkaMessageHandler):
             level = int(message.get("level", 0))
             recorded_at = str(message.get("recorded_at"))
 
+        print(f"Aggregator processing: trace_id={trace_id}, epoch_idx={idx}, end_idx={end_idx}, level={level}")
+        
         buf = self._buf.setdefault(trace_id, {"session_no": session_no, "end": end_idx, "items": {}})
         buf["items"][idx] = {"recorded_at": recorded_at, "level": level}
+        
+        print(f"Aggregator buffer: trace_id={trace_id}, collected={len(buf['items'])}, needed={buf['end'] + 1}")
 
         if len(buf["items"]) >= (buf["end"] + 1):
             # All epochs collected -> emit persist request
