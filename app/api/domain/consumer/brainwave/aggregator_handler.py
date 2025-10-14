@@ -22,6 +22,7 @@ class BrainwaveAggregatorHandler(KafkaMessageHandler):
         self._buf: Dict[str, Dict[str, Any]] = {}
 
     def __call__(self, value: bytes, headers: dict[str, str]) -> None:
+        buf = None
         try:
             print(f"Aggregator received message: trace_id={headers.get('trace_id', 'unknown')}")
             
@@ -55,8 +56,9 @@ class BrainwaveAggregatorHandler(KafkaMessageHandler):
             print(f"Aggregator ERROR: {e}")
             import traceback
             traceback.print_exc()
+            return  # 에러 발생 시 처리 중단
 
-        if len(buf["items"]) >= (buf["end"] + 1):
+        if buf and len(buf["items"]) >= (buf["end"] + 1):
             # All epochs collected -> emit persist request
             out_topic = config.TOPIC_BRAINWAVE_PERSIST_REQUESTS
             levels = [
