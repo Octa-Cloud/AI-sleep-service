@@ -22,34 +22,39 @@ class BrainwaveAggregatorHandler(KafkaMessageHandler):
         self._buf: Dict[str, Dict[str, Any]] = {}
 
     def __call__(self, value: bytes, headers: dict[str, str]) -> None:
-        print(f"Aggregator received message: trace_id={headers.get('trace_id', 'unknown')}")
-        
-        if self._use_proto:
-            obj = pb.BrainwaveAnalyzedEpoch()  # type: ignore[attr-defined]
-            obj.ParseFromString(value)
-            trace_id = obj.trace_id
-            session_no = int(obj.session_no)
-            idx = int(obj.epoch_index)
-            end_idx = int(obj.epoch_end_index)
-            level = int(obj.level)
-            from datetime import datetime, timezone
-            recorded_at = datetime.fromtimestamp(obj.recorded_at_ms / 1000, tz=timezone.utc).isoformat()
-        else:
-            import json
-            message = json.loads((value or b"{}").decode("utf-8"))
-            trace_id = str(message.get("trace_id"))
-            session_no = int(message.get("session_no"))
-            idx = int(message.get("epoch_index"))
-            end_idx = int(message.get("epoch_end_index"))
-            level = int(message.get("level", 0))
-            recorded_at = str(message.get("recorded_at"))
+        try:
+            print(f"Aggregator received message: trace_id={headers.get('trace_id', 'unknown')}")
+            
+            if self._use_proto:
+                obj = pb.BrainwaveAnalyzedEpoch()  # type: ignore[attr-defined]
+                obj.ParseFromString(value)
+                trace_id = obj.trace_id
+                session_no = int(obj.session_no)
+                idx = int(obj.epoch_index)
+                end_idx = int(obj.epoch_end_index)
+                level = int(obj.level)
+                from datetime import datetime, timezone
+                recorded_at = datetime.fromtimestamp(obj.recorded_at_ms / 1000, tz=timezone.utc).isoformat()
+            else:
+                import json
+                message = json.loads((value or b"{}").decode("utf-8"))
+                trace_id = str(message.get("trace_id"))
+                session_no = int(message.get("session_no"))
+                idx = int(message.get("epoch_index"))
+                end_idx = int(message.get("epoch_end_index"))
+                level = int(message.get("level", 0))
+                recorded_at = str(message.get("recorded_at"))
 
-        print(f"Aggregator processing: trace_id={trace_id}, epoch_idx={idx}, end_idx={end_idx}, level={level}")
-        
-        buf = self._buf.setdefault(trace_id, {"session_no": session_no, "end": end_idx, "items": {}})
-        buf["items"][idx] = {"recorded_at": recorded_at, "level": level}
-        
-        print(f"Aggregator buffer: trace_id={trace_id}, collected={len(buf['items'])}, needed={buf['end'] + 1}")
+            print(f"Aggregator processing: trace_id={trace_id}, epoch_idx={idx}, end_idx={end_idx}, level={level}")
+            
+            buf = self._buf.setdefault(trace_id, {"session_no": session_no, "end": end_idx, "items": {}})
+            buf["items"][idx] = {"recorded_at": recorded_at, "level": level}
+            
+            print(f"Aggregator buffer: trace_id={trace_id}, collected={len(buf['items'])}, needed={buf['end'] + 1}")
+        except Exception as e:
+            print(f"Aggregator ERROR: {e}")
+            import traceback
+            traceback.print_exc()
 
         if len(buf["items"]) >= (buf["end"] + 1):
             # All epochs collected -> emit persist request
