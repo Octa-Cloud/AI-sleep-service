@@ -44,27 +44,4 @@ class SoundDbWriterHandler(KafkaMessageHandler):
         except Exception:
             logger.exception("dbwriter_batch_error")
 
-        # Single event fallback
-        try:
-            event = pb.SoundAnalyzedEvent()
-            event.ParseFromString(value)
-        except Exception:
-            logger.exception("dbwriter_single_parse_error")
-            return
-        recorded_at = datetime.fromtimestamp(event.at_ms / 1000.0, tz=timezone.utc)
-        entities.append(
-            SoundEvent(
-                analyzed_sound_event_no=int(generate_tsid_int()),
-                sleep_session_no=event.sleep_session_no or None,
-                event=SoundEventType(event.event) if event.event in SoundEventType.__members__ else None,
-                recorded_at=recorded_at,
-            )
-        )
-        try:
-            self._service.save_events(entities)
-        except Exception:
-            logger.exception("dbwriter_save_error", extra={"trace_id": event.trace_id, "count": len(entities)})
-            return
-        logger.info("recv")
-
 
