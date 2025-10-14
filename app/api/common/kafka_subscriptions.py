@@ -7,6 +7,8 @@ from app.common import config
 from app.common.kafka.consumer import AsyncKafkaConsumerRunner
 from app.api.domain.consumer.brainwave.aggregator_handler import BrainwaveAggregatorHandler
 from app.api.domain.consumer.brainwave.db_writer_handler import BrainwaveDbWriterHandler
+from app.api.domain.consumer.sound.aggregator_handler import SoundAggregatorHandler
+from app.api.domain.consumer.sound.db_writer_handler import SoundDbWriterHandler
 
 
 class KafkaSubscriptionsFactory:
@@ -30,13 +32,25 @@ class KafkaSubscriptionsFactory:
         persist_topic = config.TOPIC_BRAINWAVE_PERSIST_REQUESTS
         db_group = config.GROUP_BRAINWAVE_DB_WRITER
 
+        # Sound handlers
+        sound_agg_started = asyncio.Event()
+        sound_db_started = asyncio.Event()
+        sound_agg_handler = SoundAggregatorHandler(getattr(self._container, "kafka_producer", None))
+        sound_db_handler = SoundDbWriterHandler(getattr(self._container, "sound_event_service", None))
+        sound_event_topic = config.TOPIC_SOUND_ANALYZED_EVENT
+        sound_persist_topic = config.TOPIC_SOUND_PERSIST_REQUESTS
+        sound_agg_group = config.GROUP_SOUND_AGGREGATOR
+        sound_db_group = config.GROUP_SOUND_DB_WRITER
+
         consumers = [
             AsyncKafkaConsumerRunner(brokers, analyzed_topic, agg_group, handler=agg_handler, dlq_topic=dlq_topic, started_event=agg_started),
             AsyncKafkaConsumerRunner(brokers, persist_topic, db_group, handler=db_handler, dlq_topic=dlq_topic, started_event=db_started),
+            AsyncKafkaConsumerRunner(brokers, sound_event_topic, sound_agg_group, handler=sound_agg_handler, dlq_topic=dlq_topic, started_event=sound_agg_started),
+            AsyncKafkaConsumerRunner(brokers, sound_persist_topic, sound_db_group, handler=sound_db_handler, dlq_topic=dlq_topic, started_event=sound_db_started),
         ]
 
         # store for orchestrator readiness checks
-        self._started_events = [agg_started, db_started]
+        self._started_events = [agg_started, db_started, sound_agg_started, sound_db_started]
         return consumers
 
     def get_started_events(self) -> list[asyncio.Event]:
