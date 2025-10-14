@@ -34,7 +34,8 @@ class SoundAnalyzerService:
     def _ensure_class_map(self) -> None:
         if not self._class_map:
             import csv
-            class_map_url = "https://raw.githubusercontent.com/tensorflow/models/master/research/audioset/yamnet/yamnet_class_map.csv"
+            from app.common import config
+            class_map_url = config.SOUND_YAMNET_CLASS_MAP_URL
             path = tf.keras.utils.get_file("yamnet_class_map.csv", class_map_url)
             with tf.io.gfile.GFile(path, "r") as f:
                 reader = csv.reader(f)

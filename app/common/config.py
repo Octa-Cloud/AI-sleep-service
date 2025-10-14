@@ -58,4 +58,8 @@ RETRY_BACKOFF_MS = env_int("RETRY_BACKOFF_MS", 200)
 
 # Sound analysis
 SOUND_YAMNET_MODEL_URL = env_str("SOUND_YAMNET_MODEL_URL", "https://tfhub.dev/google/yamnet/1")
+SOUND_YAMNET_CLASS_MAP_URL = env_str(
+    "SOUND_YAMNET_CLASS_MAP_URL",
+    "https://raw.githubusercontent.com/tensorflow/models/master/research/audioset/yamnet/yamnet_class_map.csv",
+)
 
