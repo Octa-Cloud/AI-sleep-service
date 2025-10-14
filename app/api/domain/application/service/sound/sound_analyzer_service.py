@@ -36,7 +36,8 @@ class SoundAnalyzerService:
             import csv
             from app.common import config
             class_map_url = config.SOUND_YAMNET_CLASS_MAP_URL
-            path = tf.keras.utils.get_file("yamnet_class_map.csv", class_map_url)
+            class_map_filename = config.SOUND_YAMNET_CLASS_MAP_FILENAME
+            path = tf.keras.utils.get_file(class_map_filename, class_map_url)
             with tf.io.gfile.GFile(path, "r") as f:
                 reader = csv.reader(f)
                 next(reader)
@@ -74,40 +75,34 @@ class SoundAnalyzerService:
         return None
 
     def analyze(self, chunks: List[SoundChunkData]) -> List[SoundEventData]:
-        # Align with notebook: focus on 'Snoring' class score series with fixed threshold
+        # Detect all supported events by mapping top-N labels per frame
         self._ensure_model()
         self._ensure_class_map()
         events: List[SoundEventData] = []
+        top_n = 5
         for c in chunks:
             x = self._decode_mp3_to_float(c.data)
             x_tensor = tf.convert_to_tensor(x, dtype=tf.float32)
             scores, _, _ = self._model(x_tensor)
             frame_times = np.arange(scores.shape[0]) * 0.48
             scores_np = scores.numpy()
-            if self._snore_index is not None:
-                snore_scores = scores[:, int(self._snore_index)].numpy()
-                for i in range(len(snore_scores)):
-                    conf = float(snore_scores[i])
-                    if conf >= self._confidence_threshold:
-                        events.append(
-                            SoundEventData(
-                                event=SoundEventType.SNORE,
-                                recorded_at=c.start_at + timedelta(seconds=float(frame_times[i])),
-                            )
+            for i in range(len(scores_np)):
+                frame_scores = scores_np[i]
+                top_indices = np.argsort(frame_scores)[-top_n:][::-1]
+                for idx in top_indices:
+                    conf = float(frame_scores[idx])
+                    if conf < self._confidence_threshold:
+                        continue
+                    label = self._class_map.get(int(idx), "")
+                    ev_type = self._label_to_event_type(label)
+                    if ev_type is None:
+                        continue
+                    events.append(
+                        SoundEventData(
+                            event=ev_type,
+                            recorded_at=c.start_at + timedelta(seconds=float(frame_times[i])),
                         )
-            else:
-                # Fallback: preserve previous behavior but only map to SNORE when label matches
-                for i in range(len(scores_np)):
-                    best_idx = int(np.argmax(scores_np[i]))
-                    label = self._class_map.get(best_idx, "")
-                    if self._label_to_event_type(label) == SoundEventType.SNORE and float(scores_np[i][best_idx]) >= self._confidence_threshold:
-                        events.append(
-                            SoundEventData(
-                                event=SoundEventType.SNORE,
-                                recorded_at=c.start_at + timedelta(seconds=float(frame_times[i])),
-                            )
-                        )
-        # Do not deduplicate to mimic notebook counting behavior
+                    )
         return events
 
     def analyze_chunk_to_detections(self, chunk: SoundChunkData, *, top_n: int = 5, confidence_threshold: float = 0.7) -> List[Dict[str, Any]]:

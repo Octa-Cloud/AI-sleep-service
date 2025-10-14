@@ -62,4 +62,8 @@ SOUND_YAMNET_CLASS_MAP_URL = env_str(
     "SOUND_YAMNET_CLASS_MAP_URL",
     "https://raw.githubusercontent.com/tensorflow/models/master/research/audioset/yamnet/yamnet_class_map.csv",
 )
+SOUND_YAMNET_CLASS_MAP_FILENAME = env_str(
+    "SOUND_YAMNET_CLASS_MAP_FILENAME",
+    "yamnet_class_map.csv",
+)
 
