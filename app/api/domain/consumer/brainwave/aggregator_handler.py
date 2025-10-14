@@ -49,6 +49,12 @@ class BrainwaveAggregatorHandler(KafkaMessageHandler):
             print(f"Aggregator processing: trace_id={trace_id}, epoch_idx={idx}, end_idx={end_idx}, level={level}")
             
             buf = self._buf.setdefault(trace_id, {"session_no": session_no, "end": end_idx, "items": {}})
+            
+            # 중복 epoch_index 처리 방지
+            if idx in buf["items"]:
+                print(f"Aggregator SKIP: trace_id={trace_id}, epoch_idx={idx} already processed")
+                return
+                
             buf["items"][idx] = {"recorded_at": recorded_at, "level": level}
             
             print(f"Aggregator buffer: trace_id={trace_id}, collected={len(buf['items'])}, needed={buf['end'] + 1}")
