@@ -40,10 +40,7 @@ class SoundAggregatorHandler(KafkaMessageHandler):
             end_idx = int(headers.get("epoch_end_index", "0"))
             at_ms = int(message.get("at_ms", 0))
             event = str(message.get("event", ""))
-        self._logger.info(
-            f"agg_recv trace_id={trace_id} session_no={session_no} at_ms={at_ms} event={event}",
-            extra={"trace_id": trace_id, "session_no": session_no, "at_ms": at_ms, "event": event},
-        )
+        self._logger.debug(f"agg_recv event={event}")
         buf = self._buf.setdefault(trace_id, {"session_no": session_no, "end": end_idx, "items": {}})
         buf["items"][idx] = {"at_ms": at_ms, "event": event}
 
@@ -77,9 +74,6 @@ class SoundAggregatorHandler(KafkaMessageHandler):
                     self._producer.send(out_topic, key=key, value=out_msg, headers=hdrs)  # type: ignore[misc]
             # Clear buffer
             self._buf.pop(trace_id, None)
-            self._logger.info(
-                f"agg_emit_persist trace_id={trace_id} session_no={session_no} n_events={len(items)}",
-                extra={"trace_id": trace_id, "session_no": session_no, "n_events": len(items)},
-            )
+            self._logger.debug(f"agg_emit_persist n_events={len(items)}")
 
 

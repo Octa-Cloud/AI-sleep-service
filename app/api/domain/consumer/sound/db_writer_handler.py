@@ -24,10 +24,7 @@ class SoundDbWriterHandler(KafkaMessageHandler):
             req.ParseFromString(value)
             events = list(req.events)
             if events:
-                logger.info(
-                    f"dbwriter_recv_batch trace_id={getattr(req, 'trace_id', '-')} count={len(events)}",
-                    extra={"trace_id": getattr(req, "trace_id", "-"), "count": len(events)},
-                )
+                logger.info("recv")
                 for ev in events:
                     recorded_at = datetime.fromtimestamp(ev.at_ms / 1000.0, tz=timezone.utc)
                     entities.append(
@@ -68,6 +65,6 @@ class SoundDbWriterHandler(KafkaMessageHandler):
         except Exception:
             logger.exception("dbwriter_save_error", extra={"trace_id": event.trace_id, "count": len(entities)})
             return
-        logger.info(f"dbwriter_recv_single trace_id={event.trace_id}")
+        logger.info("recv")
 
 
