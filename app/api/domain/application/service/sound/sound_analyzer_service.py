@@ -1,12 +1,11 @@
 from __future__ import annotations
 
-import io
 from datetime import timedelta
 from typing import List, Dict, Any
 import logging
 
 import numpy as np
-from pydub import AudioSegment
+import subprocess
 import tensorflow as tf  # type: ignore
 import tensorflow_hub as hub  # type: ignore
 
@@ -53,8 +52,17 @@ class SoundAnalyzerService:
                 self._snore_index = None
 
     def _decode_mp3_to_float(self, data: bytes, *, sample_rate: int = 16000, channels: int = 1) -> np.ndarray:
-        seg = AudioSegment.from_file(io.BytesIO(data), format="mp3", parameters=["-ar", str(sample_rate), "-ac", str(channels)])
-        samples = np.array(seg.get_array_of_samples(), dtype=np.int16)
+        cmd = [
+            "ffmpeg",
+            "-v", "error",
+            "-i", "pipe:0",
+            "-ac", str(channels),
+            "-ar", str(sample_rate),
+            "-f", "s16le",
+            "pipe:1",
+        ]
+        pcm = subprocess.check_output(cmd, input=data, stderr=subprocess.STDOUT, timeout=60)
+        samples = np.frombuffer(pcm, dtype=np.int16)
         return samples.astype(np.float32) / 32768.0
 
     def _label_to_event_type(self, label: str) -> SoundEventType | None:
