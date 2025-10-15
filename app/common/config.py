@@ -44,8 +44,31 @@ GROUP_BRAINWAVE_ANALYZER = get_pod_unique_group_id(env_str("GROUP_BRAINWAVE_ANAL
 GROUP_BRAINWAVE_AGGREGATOR = get_pod_unique_group_id(env_str("GROUP_BRAINWAVE_AGGREGATOR", "brainwave-aggregator"))
 GROUP_BRAINWAVE_DB_WRITER = get_pod_unique_group_id(env_str("GROUP_BRAINWAVE_DB_WRITER", "brainwave-db-writer"))
 
+# Sound topics
+TOPIC_SOUND_INPUT_RAW = env_str("TOPIC_SOUND_INPUT_RAW", "sound.input.raw")
+TOPIC_SOUND_SPLIT_EPOCHS = env_str("TOPIC_SOUND_SPLIT_EPOCHS", "sound.split.epochs")
+TOPIC_SOUND_ANALYZED_EVENT = env_str("TOPIC_SOUND_ANALYZED_EVENT", "sound.analyzed.event")
+TOPIC_SOUND_PERSIST_REQUESTS = env_str("TOPIC_SOUND_PERSIST_REQUESTS", "sound.persist.requests")
+
+# Sound consumer groups
+GROUP_SOUND_SPLITTER = env_str("GROUP_SOUND_SPLITTER", "sound-splitter")
+GROUP_SOUND_ANALYZER = env_str("GROUP_SOUND_ANALYZER", "sound-analyzer")
+GROUP_SOUND_DB_WRITER = env_str("GROUP_SOUND_DB_WRITER", "sound-db-writer")
+GROUP_SOUND_AGGREGATOR = env_str("GROUP_SOUND_AGGREGATOR", "sound-aggregator")
+
 # Retry
 RETRY_MAX_ATTEMPTS = env_int("RETRY_MAX_ATTEMPTS", 3)
 RETRY_BACKOFF_MS = env_int("RETRY_BACKOFF_MS", 200)
 
+
+# Sound analysis
+SOUND_YAMNET_MODEL_URL = env_str("SOUND_YAMNET_MODEL_URL", "https://tfhub.dev/google/yamnet/1")
+SOUND_YAMNET_CLASS_MAP_URL = env_str(
+    "SOUND_YAMNET_CLASS_MAP_URL",
+    "https://raw.githubusercontent.com/tensorflow/models/master/research/audioset/yamnet/yamnet_class_map.csv",
+)
+SOUND_YAMNET_CLASS_MAP_FILENAME = env_str(
+    "SOUND_YAMNET_CLASS_MAP_FILENAME",
+    "yamnet_class_map.csv",
+)
 
