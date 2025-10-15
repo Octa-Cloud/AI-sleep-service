@@ -24,3 +24,12 @@ async def CreateSleepSession(
     UserNo = int(request.state.user_no)
     Service.begin(UserNo)
     return ApiResponse.on_success()
+
+@Router.delete("")
+async def DeleteSleepSession(
+    request: Request,
+    Service: SleepSessionService = Depends(_get_session_service),
+):
+    UserNo = int(request.state.user_no)
+    Service.finish(UserNo)
+    return ApiResponse.on_success()

@@ -6,6 +6,7 @@ from typing import Optional
 from app.api.domain.domain.entity.sleep_session_entity import SleepSession
 from app.api.common.decorator.session_scope import session_scope
 from app.api.common.exception.custom.session_exceptions import SleepSessionExistsApiException
+from app.api.common.exception.custom.session_exceptions import SleepSessionNotFoundApiException
 
 
 class SleepSessionService:
@@ -27,6 +28,16 @@ class SleepSessionService:
         )
         repo.insert(entity)
         return entity
+
+    @session_scope
+    def finish(self, user_no: int, session=None) -> None:
+        repo = self._repo_factory(session=session)
+
+        ongoing = repo.find_ongoing_by_user_no(int(user_no))
+        if ongoing is None:
+            raise SleepSessionNotFoundApiException()
+
+        ongoing.finished_at = datetime.now(timezone.utc)
 
     @session_scope
     def get_current_sleep_session_no(self, user_no: int, session=None) -> int:
