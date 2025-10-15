@@ -8,9 +8,7 @@ import pytest
 import httpx
 
 
-pytestmark = [
-    pytest.mark.skipif(os.getenv("KAFKA_E2E", "0") != "1", reason="Set KAFKA_E2E=1 to run Kafka E2E tests"),
-]
+pytestmark: list = []
 
 
 def _api_base() -> str:
@@ -20,13 +18,17 @@ def _api_base() -> str:
 def _make_auth_header() -> dict[str, str]:
     # Prefer shared fixture-like behavior by reading .env via integration_kafka conftest
     try:
-        from .conftest import auth_header_e2e  # type: ignore
-        return auth_header_e2e()  # type: ignore[misc]
+        from .jwt_helper import build_auth_header  # type: ignore
+        return build_auth_header()
     except Exception:
-        import jwt
-        payload = {os.getenv("JWT_ID_CLAIM", "id"): 1, "sub": os.getenv("JWT_ACCESS_SUBJECT", "AccessToken")}
-        token = jwt.encode(payload, os.getenv("JWT_SECRET", "devsecret"), algorithm=os.getenv("JWT_ALGORITHM", "HS256"))
-        return {os.getenv("JWT_TOKEN_HEADER", "Authorization"): f"{os.getenv('JWT_BEARER_PREFIX', 'Bearer')} {token}"}
+        try:
+            from .conftest import auth_header_e2e  # type: ignore
+            return auth_header_e2e()  # type: ignore[misc]
+        except Exception:
+            import jwt
+            payload = {os.getenv("JWT_ID_CLAIM", "id"): 1, "sub": os.getenv("JWT_ACCESS_SUBJECT", "AccessToken")}
+            token = jwt.encode(payload, os.getenv("JWT_SECRET", "devsecret"), algorithm=os.getenv("JWT_ALGORITHM", "HS256"))
+            return {os.getenv("JWT_TOKEN_HEADER", "Authorization"): f"{os.getenv('JWT_BEARER_PREFIX', 'Bearer')} {token}"}
 
 
 def _count_levels() -> int:

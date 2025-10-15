@@ -31,10 +31,10 @@ def _load_root_env() -> None:
 
 
 def _parse_args(argv: list[str]) -> argparse.Namespace:
-    p = argparse.ArgumentParser(description="Run tests (standard or Kafka E2E)")
+    p = argparse.ArgumentParser(description="Run tests: app/ (default) or integration_kafka/ (with --e2e)")
     p.add_argument("paths", nargs="*", help="Optional test paths (defaults based on mode)")
     mode = p.add_mutually_exclusive_group()
-    mode.add_argument("--e2e", action="store_true", help="Run Kafka E2E integration tests")
+    mode.add_argument("--e2e", action="store_true", help="Run Kafka E2E integration tests (integration_kafka)")
     p.add_argument("-k", dest="keyword", default=None, help="Pytest -k expression filter")
     p.add_argument("--brokers", default=None, help="Kafka bootstrap servers (default: localhost:29092 for E2E)")
     p.add_argument("--api-base", default=None, help="API base URL for HTTP E2E tests (default: http://localhost:8080)")
@@ -77,6 +77,10 @@ def main(argv: list[str]) -> int:
 
     pytest_args: list[str] = []
 
+    # Force host-accessible endpoints for external services (override .env)
+    os.environ["KAFKA_BROKERS"] = "localhost:29092"
+    os.environ["API_BASE"] = "http://localhost:8080"
+
     if ns.e2e:
         # Kafka E2E mode
         os.environ["KAFKA_E2E"] = "1"
@@ -93,7 +97,7 @@ def main(argv: list[str]) -> int:
         print("[info] Running Kafka E2E tests. Ensure Docker services (Kafka + API) are up:")
         print("       docker compose up -d --build")
 
-        # Default E2E paths
+        # E2E paths
         if ns.paths:
             pytest_args.extend(ns.paths)
         else:
@@ -101,11 +105,11 @@ def main(argv: list[str]) -> int:
     else:
         # Standard tests (unit/integration without Kafka)
         os.environ["KAFKA_E2E"] = "0"
-        # Our test conftest disables Kafka by default in this mode
+        # Default: run only unit tests under app/tests/app
         if ns.paths:
             pytest_args.extend(ns.paths)
         else:
-            pytest_args.append("app/tests")
+            pytest_args.append("app/tests/app")
 
     if ns.keyword:
         pytest_args.extend(["-k", ns.keyword])
