@@ -1,0 +1,317 @@
+import mysql.connector
+import json
+import re
+from datetime import date, datetime, time, timedelta
+from azure.ai.projects import AIProjectClient
+from azure.identity import DefaultAzureCredential
+from azure.ai.agents.models import ListSortOrder
+from typing import Dict, Any, Optional, Tuple
+
+DB_CONFIG = {
+    "host": "127.0.0.1",
+    "user": "root",
+    "password": "1234",
+    "database": "AI_sleep_service",
+    "port": 3307
+}
+
+PROJECT_ENDPOINT = "https://happy-mgpyzagf-eastus2.services.ai.azure.com/api/projects/happy-mgpyzagf-eastus2_project"
+AGENT_ID = "asst_4PmU8SDT1Ogjn5rgO451eBtH"
+
+def cumulative_average(values: list) -> Optional[float]:
+    """리스트의 누적 평균을 계산합니다."""
+    valid_values = [float(v) for v in values if v is not None] 
+    if not valid_values:
+        return None
+
+    cum_avg = []
+    for i, v in enumerate(valid_values):
+        if i == 0:
+            cum_avg.append(v)
+        else:
+            prev_avg = cum_avg[-1]
+            new_avg = (prev_avg * i + v) / (i + 1)
+            cum_avg.append(new_avg)
+    return cum_avg[-1]
+
+def calculate_average_time(times: list) -> Optional[str]:
+    """bed_at 시간 리스트를 기반으로 평균 시각을 HH:MM:SS 문자열로 계산합니다."""
+    if not times:
+        return None
+    
+    SECONDS_IN_DAY = 86400
+    
+    total_seconds = []
+    
+    for t in times:
+        if isinstance(t, datetime):
+            t = t.time()
+        
+        seconds = t.hour * 3600 + t.minute * 60 + t.second
+        
+        # 새벽 4시 이전 시간은 이전 날의 취침 시간으로 간주하여 24시간을 더해 평균을 정확히 계산합니다.
+        if seconds < 4 * 3600:
+            seconds += SECONDS_IN_DAY
+        
+        total_seconds.append(seconds)
+            
+    avg_seconds = sum(total_seconds) / len(total_seconds)
+    
+    # 결과를 24시간 주기로 정규화합니다.
+    avg_seconds = avg_seconds % SECONDS_IN_DAY
+    
+    hours = int(avg_seconds // 3600)
+    minutes = int((avg_seconds % 3600) // 60)
+    seconds = int(avg_seconds % 60)
+    
+    return f"{hours:02}:{minutes:02}:{seconds:02}"
+
+def get_db_connection():
+    """DB 연결 및 커서를 반환합니다."""
+    try:
+        conn = mysql.connector.connect(**DB_CONFIG)
+        cursor = conn.cursor(dictionary=True)
+        return conn, cursor
+    except mysql.connector.Error as err:
+        print(f"❌ DB 연결 오류: {err}")
+        raise
+
+def get_period_avg(conn, cursor, user_id: int, start_date: date, end_date: date) -> Dict[str, Optional[Any]]:
+    """DB에서 기간별 일일 보고서 데이터와 bed_at 평균을 가져와 계산합니다."""
+    
+    # 1. daily_report에서 점수, 수면 시간, 비율 데이터를 가져옵니다.
+    cursor.execute("""
+    SELECT score, total_sleep_minutes, deep_ratio, light_ratio, rem_ratio 
+    FROM daily_report
+    WHERE user_id=%s AND sleep_date BETWEEN %s AND %s
+    ORDER BY sleep_date ASC
+    """, (user_id, start_date, end_date))
+    rows = cursor.fetchall()
+    
+    if not rows:
+        raise ValueError(f"사용자 {user_id}의 {start_date}부터 {end_date}까지의 데이터가 없습니다.")
+        
+    # 2. sleep_session에서 bed_at 취침 시간을 가져옵니다.
+    cursor.execute("""
+    SELECT bed_at 
+    FROM sleep_session
+    WHERE user_id=%s AND DATE(bed_at) BETWEEN %s AND %s
+    """, (user_id, start_date, end_date))
+    sleep_rows = cursor.fetchall()
+    
+    # 컬럼명을 'bed_at'으로 사용
+    bed_times = [r.get('bed_at') for r in sleep_rows if r.get('bed_at') is not None]
+    avg_bed_time = calculate_average_time(bed_times)
+
+    return {
+        "avg_score": cumulative_average([r.get('score') for r in rows]),
+        "avg_sleep_minutes": cumulative_average([r.get('total_sleep_minutes') for r in rows]),
+        "deep_ratio": cumulative_average([r.get('deep_ratio') for r in rows]),
+        "light_ratio": cumulative_average([r.get('light_ratio') for r in rows]),
+        "rem_ratio": cumulative_average([r.get('rem_ratio') for r in rows]),
+        "avg_bed_time": avg_bed_time
+    }
+
+def clean_non_standard_json(text: str) -> str:
+    """Agent가 반환한 비표준 JSON (키에 따옴표 없는 경우)을 보강된 정규식으로 교정합니다."""
+    text = text.replace("```json", "").replace("```", "").strip()
+    
+    # 키에 따옴표 없는 JSON을 처리하는 정규식:
+    text = re.sub(r'([\{\,]\s*)(\s*\w+\s*)(\s*:\s*)', r'\1"\2"\3', text)
+    
+    # 불완전한 쉼표 제거 (오류 방지)
+    text = text.replace(',\n}', '\n}')
+    
+    return text
+
+def parse_agent_response(output_text: str) -> Optional[Tuple[Dict[str, Any], Dict[str, Any]]]:
+    """Agent 응답 텍스트를 클리닝하고 2개의 JSON 블록을 파싱합니다."""
+    
+    # Agent가 불필요한 텍스트를 추가했을 경우를 대비하여 JSON 객체({})만 강제 추출
+    json_pattern = r'(\{.*?\})' 
+    json_blocks = re.findall(json_pattern, output_text, re.DOTALL)
+    
+    if len(json_blocks) < 2:
+        print(f"🚨 Agent 응답에서 2개의 JSON 블록을 찾지 못했습니다. (추출된 블록 수: {len(json_blocks)})")
+        return None
+        
+    try:
+        # 첫 번째 블록과 두 번째 블록을 개별적으로 클리닝 후 파싱
+        daily_report_json_raw = clean_non_standard_json(json_blocks[0])
+        analysis_json_raw = clean_non_standard_json(json_blocks[1])
+        
+        daily_report_json = json.loads(daily_report_json_raw)
+        analysis_json = json.loads(analysis_json_raw)
+        
+        print("✅ JSON 2개 블록 파싱 성공.")
+        return daily_report_json, analysis_json
+        
+    except json.JSONDecodeError as e:
+        print(f"🚨 JSON 파싱 오류 (강제 교정 및 추출 후에도 실패): {e}")
+        # 오류 발생 블록이 어떤 내용인지 확인
+        print(f"   (B1 교정 시도 텍스트: '{daily_report_json_raw[:50]}...')")
+        print(f"   (B2 교정 시도 텍스트: '{analysis_json_raw[:50]}...')")
+        return None
+
+def update_periodic_report_db(conn, cursor, user_id: int, start_date: date, end_date: date, daily_report_json: Dict[str, Any], analysis_json: Dict[str, Any], period_avg: Dict[str, Any]):
+    period_length = (end_date - start_date).days + 1
+    if period_length >= 28:
+        report_type = 'monthly'
+    else:
+        report_type = 'weekly' 
+        
+    avg_bed_time = period_avg.get('avg_bed_time')
+    
+    upsert_sql = """
+    INSERT INTO periodic_report (
+        user_id, period_start_date, period_end_date, report_type, 
+        avg_score, avg_sleep_minutes, avg_bed_time, deep_ratio, light_ratio, rem_ratio,
+        improvement, weakness, recommendation
+    ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+    ON DUPLICATE KEY UPDATE
+        report_type=VALUES(report_type),
+        avg_score=VALUES(avg_score),
+        avg_sleep_minutes=VALUES(avg_sleep_minutes),
+        avg_bed_time=VALUES(avg_bed_time),
+        deep_ratio=VALUES(deep_ratio),
+        light_ratio=VALUES(light_ratio),
+        rem_ratio=VALUES(rem_ratio),
+        improvement=VALUES(improvement),
+        weakness=VALUES(weakness),
+        recommendation=VALUES(recommendation);
+    """
+    
+    params = (
+        user_id, start_date, end_date, report_type,
+        daily_report_json.get('score', period_avg['avg_score']),
+        daily_report_json.get('total_sleep_minutes', period_avg['avg_sleep_minutes']),
+        avg_bed_time,
+        daily_report_json.get('deep_ratio', period_avg['deep_ratio']),
+        daily_report_json.get('light_ratio', period_avg['light_ratio']),
+        daily_report_json.get('rem_ratio', period_avg['rem_ratio']),
+        analysis_json.get('improvement', ''),
+        analysis_json.get('weakness', ''),
+        analysis_json.get('recommendation', '')
+    )
+    
+    cursor.execute(upsert_sql, params)
+    conn.commit()
+    print(f"✅ DB UPSERT 성공: user_id={user_id}, 기간: {start_date} ~ {end_date}, 타입: {report_type}")
+
+def check_updated_report(user_id: int, start_date_str: str, end_date_str: str):
+    """DB에 업데이트된 주기 보고서를 조회하여 출력합니다."""
+    
+    start_date = datetime.strptime(start_date_str, '%Y-%m-%d').date()
+    end_date = datetime.strptime(end_date_str, '%Y-%m-%d').date()
+    
+    conn = None
+    try:
+        conn, cursor = get_db_connection()
+        
+        query = """
+        SELECT *
+        FROM periodic_report
+        WHERE user_id = %s
+          AND period_start_date = %s
+          AND period_end_date = %s;
+        """
+        cursor.execute(query, (user_id, start_date, end_date))
+        result = cursor.fetchone()
+        
+        print("\n================== [DB 최종 확인] ==================")
+        if result:
+            print("✅ 주기 보고서 업데이트 성공 확인:")
+            for key, value in result.items():
+                print(f"  {key}: {value}")
+        else:
+            print("❌ 해당 조건의 주기 보고서 데이터를 찾을 수 없습니다. (업데이트 실패 또는 조건 불일치)")
+        print("=====================================================")
+        
+    except Exception as e:
+        print(f"❌ DB 확인 중 오류 발생: {e}")
+    finally:
+        if conn and conn.is_connected():
+            conn.close()
+
+def run_local_periodic_report(user_id: int, start_date_str: str, end_date_str: str):
+    
+    start_date = datetime.strptime(start_date_str, '%Y-%m-%d').date()
+    end_date = datetime.strptime(end_date_str, '%Y-%m-%d').date()
+    
+    conn, cursor = get_db_connection()
+    
+    try:
+        print(f"1. 기간 데이터 조회 및 평균 계산 시작: {start_date} ~ {end_date}")
+        period_avg = get_period_avg(conn, cursor, user_id, start_date, end_date)
+        print(f"  -> 평균 데이터: {period_avg}")
+
+        # DefaultAzureCredential 초기화 시도
+        try:
+            credential = DefaultAzureCredential()
+        except Exception as auth_error:
+            print(f"❌ Azure 인증 실패: {auth_error}. 환경 변수 또는 로그인 상태를 확인하세요.")
+            raise
+            
+        project = AIProjectClient(credential=credential, endpoint=PROJECT_ENDPOINT)
+        agent = project.agents.get_agent(AGENT_ID)
+
+        print("2. Azure Agent 호출 시작 (입력 데이터만 전달)...")
+        thread = project.agents.threads.create()
+        
+        # Agent에게 전송할거 정의해놈. 다시 받을것도 prompt에 정의해놈
+        agent_input_data = json.dumps({
+            "user_id": user_id,
+            "period_start_date": str(start_date),
+            "period_end_date": str(end_date),
+            "avg_score": period_avg['avg_score'],
+            "avg_sleep_minutes": period_avg['avg_sleep_minutes'],
+            "avg_deep_ratio": period_avg['deep_ratio'],
+            "avg_light_ratio": period_avg['light_ratio'],
+            "avg_rem_ratio": period_avg['rem_ratio'],
+            "avg_bed_time": period_avg['avg_bed_time']
+        })
+        
+        project.agents.messages.create(
+            thread_id=thread.id,
+            role="user",
+            content=agent_input_data
+        )
+
+        run = project.agents.runs.create_and_process(thread_id=thread.id, agent_id=agent.id)
+
+        if run.status == "failed":
+            raise Exception(f"Agent 실행 실패: {run.last_error}")
+            
+        messages = project.agents.messages.list(thread_id=thread.id, order=ListSortOrder.ASCENDING)
+        output_text = ""
+        for message in messages:
+            if message.text_messages and message.role == 'assistant':
+                output_text = message.text_messages[-1].text.value
+        
+        print("3. Agent 응답 파싱 및 DB 업데이트 시작...")
+        parsed_data = parse_agent_response(output_text)
+
+        if parsed_data:
+            daily_report_json, analysis_json = parsed_data
+            update_periodic_report_db(conn, cursor, user_id, start_date, end_date, daily_report_json, analysis_json, period_avg)
+        else:
+            print("❌ Agent 응답 파싱 실패. DB 업데이트를 건너킵니다.")
+
+    except ValueError as e:
+        print(f"⚠️ 데이터 부족 오류: {e}")
+    except Exception as e:
+        print(f"❌ 치명적인 오류 발생: {e}")
+    finally:
+        if conn and conn.is_connected():
+            conn.close()
+            print("DB 연결 종료.")
+
+
+if __name__ == "__main__":
+    TEST_USER_ID = 1 
+    TEST_START_DATE = "2025-10-15"
+    TEST_END_DATE = "2025-10-21"
+    
+    run_local_periodic_report(TEST_USER_ID, TEST_START_DATE, TEST_END_DATE)
+
+    check_updated_report(TEST_USER_ID, TEST_START_DATE, TEST_END_DATE)
