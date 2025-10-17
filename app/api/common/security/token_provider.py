@@ -35,7 +35,7 @@ class TokenProvider:
             claims: Dict[str, Any] = jwt.decode(
                 token,
                 key=self._secret,
-                algorithms=[self._algorithm],
+                algorithms=self._algorithm,
                 options={"require": ["exp"], "verify_exp": True},
             )
             return claims

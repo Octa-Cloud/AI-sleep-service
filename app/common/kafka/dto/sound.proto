@@ -1,0 +1,39 @@
+syntax = "proto3";
+
+package sound;
+
+// Raw sound input uploaded by API (e.g., webm/opus)
+message SoundInputRaw {
+  bytes data = 1;
+  string mime = 2;
+  string filename = 3;
+  string trace_id = 4;
+  int64 session_no = 5;
+  int64 recorded_at_ms = 6; // defined at validation end time
+}
+
+// 30-second encoded chunk produced by splitter
+message SoundSplitChunk {
+  bytes data = 1;         // Encoded chunk bytes (e.g., mp3/webm)
+  float sr = 2;           // sample rate
+  int64 start_ms = 3;     // ms offset from original start
+  string trace_id = 4;
+  int64 session_no = 5;
+  int64 recorded_at_ms = 6; // carried through from input
+}
+
+// Analyzed event per timestamp
+message SoundAnalyzedEvent {
+  int64 sleep_session_no = 1;
+  int64 at_ms = 2;              // event timestamp in ms
+  string event = 3;             // event label (enum label string)
+  string trace_id = 4;
+}
+
+// Optional batch for persistence
+message SoundPersistRequest {
+  repeated SoundAnalyzedEvent events = 1;
+  string trace_id = 2;
+}
+
+

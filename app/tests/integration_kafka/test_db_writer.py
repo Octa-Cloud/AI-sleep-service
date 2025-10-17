@@ -9,7 +9,6 @@ import pytest
 
 pytestmark = [
     pytest.mark.asyncio,
-    pytest.mark.skipif(os.getenv("KAFKA_E2E", "0") != "1", reason="Set KAFKA_E2E=1 to run Kafka E2E tests"),
 ]
 
 
