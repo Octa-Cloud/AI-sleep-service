@@ -1,0 +1,97 @@
+syntax = "proto3";
+package report;
+
+enum DurationType { WEEKLY = 0; MONTHLY = 1; }
+enum Difficulty { EASY = 0; MEDIUM = 1; HARD = 2; }
+enum Effect { LOW = 0; MEDIUM_E = 1; HIGH = 2; }
+
+message DailyReportInput {
+  int64 session_no = 1;
+  int64 user_no = 2;
+  int64 created_at_ms = 3;
+  string sleep_date = 4;
+  repeated SleepLevelItem levels = 5;
+  DailyReportExisting daily_report = 6;
+}
+
+message SleepLevelItem {
+  int32 level = 1;
+  int64 recorded_at_ms = 2;
+}
+
+message DailyReportExisting {
+  int32 score = 1;
+  int32 total_sleep_minutes = 2;
+  float deep_ratio = 3;
+  float light_ratio = 4;
+  float rem_ratio = 5;
+}
+
+message DailyReportPersistRequest {
+  int64 session_no = 1;
+  int64 user_no = 2;
+  string sleep_date = 3;
+  int64 created_at_ms = 4;
+  string memo = 5;
+
+  int32 score = 10;
+  int32 total_sleep_minutes = 11;
+
+  int32 deep_sleep_minutes = 12;
+  int32 light_sleep_minutes = 13;
+  int32 rem_sleep_minutes = 14;
+
+  float deep_sleep_ratio = 15;
+  float light_sleep_ratio = 16;
+  float rem_sleep_ratio = 17;
+
+  repeated AnalysisDetail details = 20;
+}
+
+message AnalysisDetail {
+  string title = 1;
+  string description = 2;
+  Difficulty difficulty = 3;
+  Effect effect = 4;
+  repeated AnalysisStep steps = 5;
+}
+
+message AnalysisStep {
+  int32 step_index = 1;
+  string content = 2;
+}
+
+message PeriodicReportInput {
+  int64 session_no = 1;
+  int64 user_no = 2;
+  string sleep_date = 3;
+  DurationType duration_type = 4;
+}
+
+message PeriodicReportPersistRequest {
+  int64 user_no = 1;
+  DurationType duration_type = 2;
+  string period_started_at = 3;
+
+  int32 sleep_session_count = 10;
+  int32 total_score = 11;
+  int32 total_sleep_time_minutes = 12;
+  int32 total_bed_time_minutes = 13;
+  int32 total_deep_sleep_time_minutes = 14;
+  int32 total_light_sleep_time_minutes = 15;
+  int32 total_rem_sleep_time_minutes = 16;
+
+  string improvement = 20;
+  string weakness = 21;
+  string recommendation = 22;
+  string score_prediction_description = 23;
+
+  repeated ScorePredictionPoint points = 30;
+}
+
+message ScorePredictionPoint {
+  string date_index = 1;
+  int32 score = 2;
+}
+
+
