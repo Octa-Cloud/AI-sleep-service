@@ -11,11 +11,16 @@ from app.api.domain.application.service.brainwave.brainwave_analyzer_service imp
 from app.api.domain.application.service.brainwave.brainwave_chunk_splitter_service import BrainwaveChunkSplitterService
 from app.api.domain.application.service.brainwave.sleep_level_service import SleepLevelService
 from app.api.domain.application.usecase.brainwave.brainwave_analyze_use_case import BrainwaveAnalyzeUseCase
+from app.api.domain.application.usecase.report.sleep_session_finished_use_case import SleepSessionFinishedUseCase
 from app.api.domain.application.service.sleep_session.sleep_session_service import SleepSessionService
 from app.api.domain.application.service.sound.sound_data_validator_service import SoundDataValidatorService
 from app.api.domain.application.usecase.sound.sound_analyze_use_case import SoundAnalyzeUseCase
 from app.api.domain.application.service.sound.sound_event_service import SoundEventService
 from app.api.domain.infra.repository.sound_event_repository_impl import SqlAlchemySoundEventRepository
+from app.api.domain.application.service.daily_report.daily_report_service import DailyReportService
+from app.api.domain.infra.repository.daily_report_repository_impl import SqlAlchemyDailyReportRepository
+from app.api.domain.application.service.periodic_report.periodic_report_service import PeriodicReportService
+from app.api.domain.infra.repository.periodic_report_repository_impl import SqlAlchemyPeriodicReportRepository
 
 
 class Container:
@@ -38,6 +43,22 @@ class Container:
         self.brainwave_sleeplevel = SleepLevelService(
             session_repo_factory=self.sleep_session_repository_factory,
             sleep_level_repo_factory=self.sleep_level_repository_factory,
+        )
+
+        # Report repository factories
+        self.daily_report_repository_factory: Callable[..., SqlAlchemyDailyReportRepository] = (
+            lambda *, session: SqlAlchemyDailyReportRepository(session=session)
+        )
+        self.periodic_report_repository_factory: Callable[..., SqlAlchemyPeriodicReportRepository] = (
+            lambda *, session: SqlAlchemyPeriodicReportRepository(session=session)
+        )
+
+        # Report services
+        self.daily_report_service_factory = lambda: DailyReportService(
+            repo_factory=self.daily_report_repository_factory
+        )
+        self.periodic_report_service_factory = lambda: PeriodicReportService(
+            repo_factory=self.periodic_report_repository_factory
         )
 
         # Kafka producer client (to be implemented in app/common/kafka)
@@ -69,6 +90,19 @@ class Container:
             topic_input_raw=self.topic_sound_input_raw,
         )
 
+        # Report: SleepSessionFinishedUseCase factory
+        def _producer_factory():
+            # return underlying aiokafka producer for send_and_wait
+            return getattr(self.kafka_producer, "_producer", None)
+
+        self.sleep_session_finished_usecase_factory = lambda: SleepSessionFinishedUseCase(
+            sleep_level_service=self.brainwave_sleeplevel,
+            daily_report_service=self.daily_report_service_factory(),
+            sleep_session_service=self.sleep_session_service_factory(),
+            session_repo_factory=self.sleep_session_repository_factory,
+            producer_factory=_producer_factory,
+        )
+
         self.sleep_session_service_factory = lambda: SleepSessionService(
             repo_factory=self.sleep_session_repository_factory,
         )
@@ -82,6 +116,14 @@ class Container:
 
     def sound_usecase(self) -> SoundAnalyzeUseCase:
         return self.sound_usecase_factory()
+    def sleep_session_finished_usecase(self) -> SleepSessionFinishedUseCase:
+        return self.sleep_session_finished_usecase_factory()
+
+    def daily_report_service(self) -> DailyReportService:
+        return self.daily_report_service_factory()
+
+    def periodic_report_service(self) -> PeriodicReportService:
+        return self.periodic_report_service_factory()
 
 
 # Global container instance
