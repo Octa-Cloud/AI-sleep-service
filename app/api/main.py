@@ -16,6 +16,8 @@ from app.common import config
 
 from app.api.domain.worker.brainwave_chunk_splitter.__main__ import run as run_splitter  # type: ignore
 from app.api.domain.worker.brainwave_analyzer.__main__ import run as run_analyzer  # type: ignore
+from app.api.domain.worker.daily_report.__main__ import run as run_daily_report  # type: ignore
+from app.api.domain.worker.periodic_report.__main__ import run as run_periodic_report  # type: ignore
 from app.api.domain.worker.sound_chunk_splitter.__main__ import run as run_sound_splitter  # type: ignore
 from app.api.domain.worker.sound_analyzer.__main__ import run as run_sound_analyzer  # type: ignore
 
@@ -54,6 +56,8 @@ async def _start_consumers() -> None:
         app.state.worker_tasks = [
             asyncio.create_task(run_splitter()),
             asyncio.create_task(run_analyzer()),
+            asyncio.create_task(run_daily_report()),
+            asyncio.create_task(run_periodic_report()),
             asyncio.create_task(run_sound_splitter()),
             asyncio.create_task(run_sound_analyzer()),
         ]
