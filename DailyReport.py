@@ -10,33 +10,45 @@ from azure.identity import DefaultAzureCredential
 from azure.ai.agents.models import ListSortOrder
 import asyncio
 from typing import Dict, Any, Tuple, Optional, List
-import os 
+import os
 import logging
 
 # 로깅 설정
 logging.basicConfig(level=logging.INFO)
+
+# =========================================================================
+# 🚨🚨🚨 인증서 기반 인증 환경 변수 설정 🚨🚨🚨
+# =========================================================================
+# 1. 클라이언트 ID와 테넌트 ID
+os.environ["AZURE_CLIENT_ID"] = "b119b103-2441-4d7a-bd05-16d97f44b0ad"
+os.environ["AZURE_TENANT_ID"] = "26080271-1d99-47dd-a23f-502db6ef9f34"
+
+# 2. 인증서 경로 설정
+CERT_PATH_RELATIVE = "./final_cert_for_azure.pem"
+# 절대 경로로 변환하여 환경 변수에 설정
+os.environ["AZURE_CLIENT_CERTIFICATE_PATH"] = os.path.abspath(CERT_PATH_RELATIVE)
+
+# 3. Azure AI Project Endpoint 설정 (환경 변수 또는 기본값)
+AZURE_PROJECT_ENDPOINT = os.getenv("AZURE_PROJECT_ENDPOINT", "https://happy-mgpyzagf-eastus2.services.ai.azure.com/api/projects/happy-mgpyzagf-eastus2_project")
+AGENT_ID = "asst_iSkomqUuZXEqzR3BU7Oc3LMG"
+
+# =========================================================================
 
 app = FastAPI(
     title="Sleep Analyst API",
     description="최신 수면 세션 데이터를 분석하고 JSON만 반환하는 Agent 서비스 API"
 )
 
-# Agent 설정 (환경 변수에서 로드)
-# 실제 환경 변수 설정에 따라 AZURE_PROJECT_ENDPOINT와 AGENT_ID를 적절히 설정해야 합니다.
-AZURE_PROJECT_ENDPOINT = os.getenv("AZURE_PROJECT_ENDPOINT") 
-AGENT_ID = "asst_iSkomqUuZXEqzR3BU7Oc3LMG" 
-
 # Docker Compose 환경 변수 로드
 DB_CONFIG = {
-    "host": os.getenv("DB_HOST", "127.0.0.1"), 
+    "host": os.getenv("DB_HOST", "127.0.0.1"),
     "user": os.getenv("DB_USER", "root"),
     "password": os.getenv("DB_PASSWORD", "1234"),
     "database": os.getenv("DB_NAME", "AI_sleep_service"),
-    "port": int(os.getenv("DB_PORT", 3306)) 
+    "port": int(os.getenv("DB_PORT", 3306))
 }
 
 def get_latest_session_data() -> Tuple[Optional[int], Optional[str], Optional[list], Optional[int], Optional[int], Optional[str], Optional[str]]:
-    """DB에서 최신 세션의 수면 레벨 데이터와 사용자 정보를 가져옵니다."""
     try:
         conn = mysql.connector.connect(**DB_CONFIG)
         cursor = conn.cursor()
@@ -139,8 +151,7 @@ async def analyze_daily_report_json():
             else:
                 raise HTTPException(status_code=500, detail=error_msg)
 
-        # 🚨 수정된 부분: Agent에 전달할 데이터를 JSON 객체로 직접 구성하여 메시지 content에 넣습니다.
-        # Agent는 이 JSON을 보고 내부 Prompt 로직을 실행합니다.
+        # Agent에 전달할 데이터를 JSON 객체로 직접 구성하여 메시지 content에 넣습니다.
         input_data_for_agent = {
             "instruction": "Agent의 내장된 '버전 1: ALL-IN-ONE' 지침을 따라 모든 계산 및 분석을 수행하고 4개의 JSON 블록을 출력하십시오. 총 수면 시간 및 비율 계산 시 Wakeup(0)은 제외하고 1, 2, 3, 4, 5만 사용하십시오.",
             "sleep_session_no": session_id,
@@ -151,8 +162,13 @@ async def analyze_daily_report_json():
             "predicted_classes_array": predicted_classes 
         }
         
-        # Agent에 메시지 전달 (Prompt 문자열 생성 없이 데이터만 전달)
-        project = AIProjectClient(credential=DefaultAzureCredential(), endpoint=AZURE_PROJECT_ENDPOINT)
+        # =========================================================================
+        # AI Project Client 초기화 (설정된 환경 변수 기반으로 인증)
+        # =========================================================================
+        project = AIProjectClient(
+            credential=DefaultAzureCredential(), # 환경 변수에 설정된 인증서 정보 사용
+            endpoint=AZURE_PROJECT_ENDPOINT
+        )
         agent = project.agents.get_agent(AGENT_ID)
         thread = project.agents.threads.create()
         
@@ -161,7 +177,7 @@ async def analyze_daily_report_json():
         project.agents.messages.create(thread_id=thread.id, role="user", content=json_content)
         logging.info(f"Agent에 데이터 전송 완료: Session ID {session_id}")
 
-        # Run 생성 및 처리
+        # Run 생성 및 처리 (비동기로 실행)
         run = await asyncio.to_thread(project.agents.runs.create_and_process, thread_id=thread.id, agent_id=agent.id)
         if run.status == "failed":
             raise HTTPException(status_code=500, detail=f"Agent 실행 실패: {run.last_error}")
