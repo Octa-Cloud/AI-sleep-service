@@ -16,9 +16,6 @@ import logging
 # 로깅 설정
 logging.basicConfig(level=logging.INFO)
 
-# =========================================================================
-# 🚨🚨🚨 인증서 기반 인증 환경 변수 설정 🚨🚨🚨
-# =========================================================================
 # 1. 클라이언트 ID와 테넌트 ID
 os.environ["AZURE_CLIENT_ID"] = "b119b103-2441-4d7a-bd05-16d97f44b0ad"
 os.environ["AZURE_TENANT_ID"] = "26080271-1d99-47dd-a23f-502db6ef9f34"
@@ -31,8 +28,6 @@ os.environ["AZURE_CLIENT_CERTIFICATE_PATH"] = os.path.abspath(CERT_PATH_RELATIVE
 # 3. Azure AI Project Endpoint 설정 (환경 변수 또는 기본값)
 AZURE_PROJECT_ENDPOINT = os.getenv("AZURE_PROJECT_ENDPOINT", "https://happy-mgpyzagf-eastus2.services.ai.azure.com/api/projects/happy-mgpyzagf-eastus2_project")
 AGENT_ID = "asst_iSkomqUuZXEqzR3BU7Oc3LMG"
-
-# =========================================================================
 
 app = FastAPI(
     title="Sleep Analyst API",
