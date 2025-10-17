@@ -26,12 +26,20 @@ KAFKA_BROKERS = env_str("KAFKA_BROKERS", "kafka:9092")
 KAFKA_ENABLED = env_bool("KAFKA_ENABLED", True)
 KAFKA_PROTOBUF_ENABLED = env_bool("KAFKA_PROTOBUF_ENABLED", False)
 TOPIC_DLQ = env_str("TOPIC_DLQ", "brainwave.dlq")
+TOPIC_REPORT_DLQ = env_str("TOPIC_REPORT_DLQ", "report.dlq")
 
 # Brainwave topics
 TOPIC_BRAINWAVE_INPUT_RAW = env_str("TOPIC_BRAINWAVE_INPUT_RAW", "brainwave.input.raw")
 TOPIC_BRAINWAVE_SPLIT_EPOCHS = env_str("TOPIC_BRAINWAVE_SPLIT_EPOCHS", "brainwave.split.epochs")
 TOPIC_BRAINWAVE_ANALYZED_EPOCH = env_str("TOPIC_BRAINWAVE_ANALYZED_EPOCH", "brainwave.analyzed.epoch")
 TOPIC_BRAINWAVE_PERSIST_REQUESTS = env_str("TOPIC_BRAINWAVE_PERSIST_REQUESTS", "brainwave.persist.requests")
+
+# Report topics (daily / periodic)
+TOPIC_DAILY_REPORT_INPUT = env_str("TOPIC_DAILY_REPORT_INPUT", "daily.report.input")
+TOPIC_DAILY_REPORT_PERSIST_REQUESTS = env_str("TOPIC_DAILY_REPORT_PERSIST_REQUESTS", "daily.report.persist.requests")
+
+TOPIC_PERIODIC_REPORT_INPUT = env_str("TOPIC_PERIODIC_REPORT_INPUT", "periodic.report.input")
+TOPIC_PERIODIC_REPORT_PERSIST_REQUESTS = env_str("TOPIC_PERIODIC_REPORT_PERSIST_REQUESTS", "periodic.report.persist.requests")
 
 # Consumer groups - Pod별로 고유한 Group ID 사용
 def get_pod_unique_group_id(base_name: str) -> str:
@@ -56,6 +64,12 @@ GROUP_SOUND_ANALYZER = env_str("GROUP_SOUND_ANALYZER", "sound-analyzer")
 GROUP_SOUND_DB_WRITER = env_str("GROUP_SOUND_DB_WRITER", "sound-db-writer")
 GROUP_SOUND_AGGREGATOR = env_str("GROUP_SOUND_AGGREGATOR", "sound-aggregator")
 
+# Report consumer groups
+GROUP_DAILY_REPORT_WORKER = get_pod_unique_group_id(env_str("GROUP_DAILY_REPORT_WORKER", "daily-report-worker"))
+GROUP_PERIODIC_REPORT_WORKER = get_pod_unique_group_id(env_str("GROUP_PERIODIC_REPORT_WORKER", "periodic-report-worker"))
+GROUP_DAILY_REPORT_DB_WRITER = get_pod_unique_group_id(env_str("GROUP_DAILY_REPORT_DB_WRITER", "daily-report-db-writer"))
+GROUP_PERIODIC_REPORT_DB_WRITER = get_pod_unique_group_id(env_str("GROUP_PERIODIC_REPORT_DB_WRITER", "periodic-report-db-writer"))
+
 # Retry
 RETRY_MAX_ATTEMPTS = env_int("RETRY_MAX_ATTEMPTS", 3)
 RETRY_BACKOFF_MS = env_int("RETRY_BACKOFF_MS", 200)
@@ -71,4 +85,12 @@ SOUND_YAMNET_CLASS_MAP_FILENAME = env_str(
     "SOUND_YAMNET_CLASS_MAP_FILENAME",
     "yamnet_class_map.csv",
 )
+
+# Reporting cutoff (local hour / timezone)
+REPORT_CUTOFF_HOUR_LOCAL = env_int("REPORT_CUTOFF_HOUR_LOCAL", 0)  # default 00:00
+REPORT_CUTOFF_TZ = env_str("REPORT_CUTOFF_TZ", "Asia/Seoul")
+
+# Azure Agent / Project
+AZURE_PROJECT_ENDPOINT = env_str("AZURE_PROJECT_ENDPOINT", "")
+AZURE_AGENT_ID = env_str("AZURE_AGENT_ID", "")
 
