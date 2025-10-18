@@ -4,6 +4,7 @@ import asyncio
 import json
 import logging
 from typing import Any, Dict, Optional, Tuple
+from time import perf_counter
 
 from azure.ai.projects import AIProjectClient
 from azure.identity import DefaultAzureCredential
@@ -13,8 +14,8 @@ from app.common import config
 
 class PeriodicReportAgentService:
     def __init__(self) -> None:
-        self._endpoint = config.AZURE_PROJECT_ENDPOINT
-        self._agent_id = config.AZURE_AGENT_ID
+        self._endpoint = config.AZURE_PERIODIC_PROJECT_ENDPOINT
+        self._agent_id = config.AZURE_PERIODIC_AGENT_ID
         self._logger = logging.getLogger("periodic.agent")
 
     def _ensure_config(self) -> None:
@@ -27,25 +28,39 @@ class PeriodicReportAgentService:
         (daily_report_json, analysis_json). Returns (None, None) on failure.
         """
         self._ensure_config()
-        project = AIProjectClient(credential=DefaultAzureCredential(), endpoint=self._endpoint)
-        agent = project.agents.get_agent(self._agent_id)
-        thread = project.agents.threads.create()
+        started = perf_counter()
+        # start
 
-        json_content = json.dumps(payload, ensure_ascii=False)
-        project.agents.messages.create(thread_id=thread.id, role="user", content=json_content)
-        run = await asyncio.to_thread(project.agents.runs.create_and_process, thread_id=thread.id, agent_id=agent.id)
-        if run.status == "failed":
-            self._logger.error("agent_run_failed", extra={"last_error": run.last_error})
-            return None, None
+        try:
+            project = AIProjectClient(credential=DefaultAzureCredential(), endpoint=self._endpoint)
+            agent = project.agents.get_agent(self._agent_id)
+            thread = project.agents.threads.create()
+            # agent_thread_created
 
-        from azure.ai.agents.models import ListSortOrder
-        messages = project.agents.messages.list(thread_id=thread.id, order=ListSortOrder.ASCENDING)
-        agent_response_text = ""
-        for msg in messages:
-            if msg.text_messages and msg.role == "assistant":
-                agent_response_text += msg.text_messages[-1].text.value
+            json_content = json.dumps(payload, ensure_ascii=False)
+            project.agents.messages.create(thread_id=thread.id, role="user", content=json_content)
+            run = await asyncio.to_thread(project.agents.runs.create_and_process, thread_id=thread.id, agent_id=agent.id)
+            if run.status == "failed":
+                self._logger.error("agent_run_failed", extra={"last_error": run.last_error})
+                return None, None
 
-        return self._parse_agent_response(agent_response_text)
+            from azure.ai.agents.models import ListSortOrder
+            messages = project.agents.messages.list(thread_id=thread.id, order=ListSortOrder.ASCENDING)
+            agent_response_text = ""
+            msg_count = 0
+            for msg in messages:
+                if msg.text_messages and msg.role == "assistant":
+                    agent_response_text += msg.text_messages[-1].text.value
+                msg_count += 1
+                print('periodic=', agent_response_text)
+                # collected messages
+
+            out = self._parse_agent_response(agent_response_text)
+            # done
+            return out
+        except Exception:
+            self._logger.exception("agent_call_error")
+            raise
 
     def _parse_agent_response(self, output_text: str) -> Tuple[Optional[Dict[str, Any]], Optional[Dict[str, Any]]]:
         import re
@@ -60,7 +75,7 @@ class PeriodicReportAgentService:
             return daily_block, analysis_block
         except Exception:
             self._logger.exception("agent_parse_error")
-            return None, None
+            raise
 
     def _clean_and_load(self, raw: str) -> Optional[Dict[str, Any]]:
         raw = raw.replace("```json", "").replace("```", "").strip()
