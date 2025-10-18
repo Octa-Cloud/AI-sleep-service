@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from datetime import date, timedelta
 from typing import List
+import logging
 
 from app.api.domain.application.service.daily_report.daily_report_service import DailyReportService
 from app.api.domain.application.service.periodic_report.periodic_report_agent_service import PeriodicReportAgentService
@@ -18,6 +19,7 @@ class PeriodicReportPipelineService:
     def __init__(self, daily_service: DailyReportService, agent_service: PeriodicReportAgentService) -> None:
         self._daily = daily_service
         self._agent = agent_service
+        self._logger = logging.getLogger("report.pipeline.periodic")
 
     def _calc_period_start(self, base: date, duration_type: int) -> date:
         if duration_type == int(rp.DurationType.WEEKLY):  # type: ignore[attr-defined]
@@ -42,6 +44,12 @@ class PeriodicReportPipelineService:
         base = date.fromisoformat(str(pri.sleep_date))
         duration_type = int(pri.duration_type)
         period_start = self._calc_period_start(base, duration_type)
+        self._logger.info(
+            (
+                f"periodic_pipeline_build_start user_no={user_no} sleep_date={base.isoformat()} "
+                f"duration_type={'WEEKLY' if duration_type == int(rp.DurationType.WEEKLY) else 'MONTHLY'} period_start={period_start.isoformat()}"
+            )
+        )
 
         reports = self._daily.get_range(user_no, period_start, base)
         sleep_session_count = len(reports)
@@ -64,7 +72,14 @@ class PeriodicReportPipelineService:
             "total_rem_sleep_time_minutes": total_rem,
             "sleep_session_count": sleep_session_count,
         }
-        daily_block, analysis_block = await self._agent.analyze(payload)
+        try:
+            daily_block, analysis_block = await self._agent.analyze(payload)
+        except Exception:
+            # include stack trace for precise diagnosis
+            self._logger.exception(
+                f"periodic_pipeline_agent_error user_no={user_no} period_start={period_start.isoformat()} payload_keys={list(payload.keys())}"
+            )
+            daily_block, analysis_block = {}, {}
 
         improvement = (analysis_block or {}).get("improvement", "") if analysis_block else ""
         weakness = (analysis_block or {}).get("weakness", "") if analysis_block else ""
@@ -77,7 +92,7 @@ class PeriodicReportPipelineService:
             except Exception:
                 continue
 
-        return rp.PeriodicReportPersistRequest(  # type: ignore[attr-defined]
+        out = rp.PeriodicReportPersistRequest(  # type: ignore[attr-defined]
             user_no=user_no,
             duration_type=pri.duration_type,
             period_started_at=period_start.isoformat(),
@@ -94,5 +109,12 @@ class PeriodicReportPipelineService:
             score_prediction_description=str(score_prediction_description or ""),
             points=points,
         )
+        self._logger.info(
+            (
+                f"periodic_pipeline_build_done user_no={user_no} period_start={period_start.isoformat()} "
+                f"sleep_session_count={sleep_session_count} total_score={total_score}"
+            )
+        )
+        return out
 
 
