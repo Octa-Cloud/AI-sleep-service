@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from app.common.kafka.interfaces import KafkaMessageHandler
+import logging
 from app.api.common.decorator.session_scope import session_scope
 from app.api.domain.domain.entity.periodic_report_entity import DurationType as PRDurationType
 from app.api.domain.application.service.periodic_report.periodic_report_service import PeriodicReportService
@@ -16,12 +17,11 @@ class PeriodicReportDbWriterHandler(KafkaMessageHandler):
         if rp is None:
             raise RuntimeError("Protobuf stubs not generated for report. Run scripts/gen_protos.py")
         self._svc = service
+        self._logger = logging.getLogger("report.dbwriter.periodic")
 
     @session_scope
     def __call__(self, value: bytes, headers: dict[str, str], session=None) -> None:  # type: ignore[override]
-        content_type = headers.get("content-type", "")
-        if "PeriodicReportPersistRequest" not in content_type:
-            return
+        # Parse body directly without relying on Kafka headers
         obj = rp.PeriodicReportPersistRequest()  # type: ignore[attr-defined]
         obj.ParseFromString(value)
 
@@ -30,6 +30,10 @@ class PeriodicReportDbWriterHandler(KafkaMessageHandler):
         duration = PRDurationType[obj.duration_type.name]
 
         # Delegate to service
+        self._logger.info(
+            f"periodic_db_writer_recv user_no={int(obj.user_no)} "
+            f"duration_type={obj.duration_type.name} period_started_at={str(obj.period_started_at)}"
+        )
         points = []
         from datetime import date as _d
         for p in obj.points:
@@ -55,6 +59,10 @@ class PeriodicReportDbWriterHandler(KafkaMessageHandler):
             score_prediction_description=str(obj.score_prediction_description or ""),
             points=points,
             session=session,
+        )
+        self._logger.info(
+            f"periodic_db_writer_upserted user_no={int(obj.user_no)} "
+            f"duration_type={obj.duration_type.name} period_started_at={str(obj.period_started_at)}"
         )
         return
 
