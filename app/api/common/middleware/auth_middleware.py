@@ -42,15 +42,26 @@ class AuthMiddleware:
                     request.state.claims = claims
                     await self.app(scope, receive, send)
                     return
+                else:
+                    print(f"AuthMiddleware error: No user_no in claims: {claims}")
+                    return JSONResponse(
+                        status_code=401,
+                        content={"message": "Invalid token: missing user ID"}
+                    )
             except Exception as e:
                 # Log the error for debugging
                 print(f"AuthMiddleware error: {e}")
-                # If token extraction fails, fall through to error handling
-                pass
+                return JSONResponse(
+                    status_code=401,
+                    content={"message": "Invalid token"}
+                )
         
         # If no Authorization header, but request reached here, nginx auth-url passed
-        # Allow the request to proceed (nginx already validated it)
-        await self.app(scope, receive, send)
-        return
+        # However, we still need user_no for the application to work
+        print(f"AuthMiddleware error: No Authorization header found")
+        return JSONResponse(
+            status_code=401,
+            content={"message": "Missing Authorization header"}
+        )
 
 
