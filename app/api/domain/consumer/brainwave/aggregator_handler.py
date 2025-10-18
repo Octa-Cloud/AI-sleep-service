@@ -38,7 +38,12 @@ class BrainwaveAggregatorHandler(KafkaMessageHandler):
                 recorded_at = datetime.fromtimestamp(obj.recorded_at_ms / 1000, tz=timezone.utc).isoformat()
             else:
                 import json
-                message = json.loads((value or b"{}").decode("utf-8"))
+                try:
+                    message = json.loads((value or b"{}").decode("utf-8"))
+                except UnicodeDecodeError as e:
+                    print(f"Unicode decode error: {e}, value: {value}")
+                    # Skip invalid messages
+                    return
                 trace_id = str(message.get("trace_id"))
                 session_no = int(message.get("session_no"))
                 idx = int(message.get("epoch_index"))

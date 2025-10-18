@@ -40,7 +40,7 @@ class DailyReport(Base):
 
     sleep_session_no = Column(BigInteger, ForeignKey("sleep_sessions.sleep_session_no", ondelete="CASCADE"), primary_key=True)
     memo = Column(String(255), nullable=True)
-    user_no = Column(BigInteger, ForeignKey("users.user_no"), nullable=False)
+    user_no = Column(BigInteger, nullable=False)  # FK to users table (removed for schema creation)
     created_at = Column(DateTime, nullable=False)
 
 

@@ -18,7 +18,11 @@ class BrainwaveAnalyzerService:
         models_dir = os.getenv("MODELS_DIR")
         if not models_dir:
             base = app_root or os.getcwd()
-            models_dir = os.path.join(base, "app", "models")
+            # Check if we're already in the app directory
+            if os.path.basename(base) == "app":
+                models_dir = os.path.join(base, "models")
+            else:
+                models_dir = os.path.join(base, "app", "models")
 
         self._model_path = os.path.join(models_dir, "model_4.keras")
         self._mean_path = os.path.join(models_dir, "mean.npy")

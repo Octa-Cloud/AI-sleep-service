@@ -17,7 +17,7 @@ class PeriodicReport(Base):
     __tablename__ = "periodic_reports"
 
     periodic_report_no = Column(BigInteger, primary_key=True, autoincrement=True)
-    user_no = Column(BigInteger, ForeignKey("users.user_no"), nullable=False)
+    user_no = Column(BigInteger, nullable=False)  # FK to users table (removed for schema creation)
 
     sleep_session_count = Column(MYSQL_SMALLINT(unsigned=True), nullable=False)
 

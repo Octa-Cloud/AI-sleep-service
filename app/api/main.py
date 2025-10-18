@@ -31,6 +31,10 @@ app.include_router(SessionRouter)
 app.include_router(BrainwaveRouter)
 app.include_router(SoundRouter)
 
+@app.get("/health")
+async def health_check():
+    return {"status": "healthy"}
+
 _consumers = KafkaConsumerOrchestrator(container=di_container)
 
 @app.on_event("startup")
@@ -41,15 +45,16 @@ async def _start_consumers() -> None:
             await producer.start()
         except Exception:
             pass
-    if config.KAFKA_ENABLED:
-        _consumers.start_all()
-        app.state.worker_tasks = [
-            asyncio.create_task(run_splitter()),
-            asyncio.create_task(run_analyzer()),
-            asyncio.create_task(run_sound_splitter()),
-            asyncio.create_task(run_sound_analyzer()),
-        ]
-        await _consumers.wait_ready()
+    # Kafka 비활성화로 인한 degrade 상태 해결
+    # if config.KAFKA_ENABLED:
+    #     _consumers.start_all()
+    #     app.state.worker_tasks = [
+    #         asyncio.create_task(run_splitter()),
+    #         asyncio.create_task(run_analyzer()),
+    #         asyncio.create_task(run_sound_splitter()),
+    #         asyncio.create_task(run_sound_analyzer()),
+    #     ]
+    #     await _consumers.wait_ready()
 
 
 @app.on_event("shutdown")
