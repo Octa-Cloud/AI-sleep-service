@@ -27,29 +27,30 @@ class AuthMiddleware:
             await self.app(scope, receive, send)
             return
 
+        # nginx auth-url has already validated the request
+        # Just extract userNo from the JWT token without validation
         auth_header = request.headers.get(self.token_provider._header_name)
-        try:
-            token = self.token_provider.extract_from_header(auth_header)
-            claims = self.token_provider.verify_and_decode(token)
-            self.token_provider.validate_access_subject(claims)
-            request.state.user_no = self.token_provider.get_user_no(token)
-            request.state.claims = claims
+        if auth_header:
+            try:
+                token = self.token_provider.extract_from_header(auth_header)
+                # Decode JWT without verification since nginx already validated it
+                import jwt
+                claims = jwt.decode(token, options={"verify_signature": False, "verify_exp": False})
+                user_no = claims.get(self.token_provider._id_claim)
+                if user_no:
+                    request.state.user_no = int(user_no)
+                    request.state.claims = claims
+                    await self.app(scope, receive, send)
+                    return
+            except Exception:
+                # If token extraction fails, fall through to error handling
+                pass
 
-        except UnauthorizedApiException as exc:
-            from app.api.domain.application.dto.response.api_response import ApiResponse
-            code = exc.build_code()
-            payload = ApiResponse.on_failure(code, exc.message).model_dump(mode="json", exclude_none=True)
-            response = JSONResponse(status_code=exc.status_code, content=payload)
-            await response(scope, receive, send)
-            return
-
-        except Exception:
-            from app.api.domain.application.dto.response.api_response import ApiResponse
-            payload = ApiResponse.on_failure("AUTH401", "인증이 필요합니다.").model_dump(mode="json", exclude_none=True)
-            response = JSONResponse(status_code=401, content=payload)
-            await response(scope, receive, send)
-            return
-
-        await self.app(scope, receive, send)
+        # If no valid token found, return 401
+        from app.api.domain.application.dto.response.api_response import ApiResponse
+        payload = ApiResponse.on_failure("AUTH401", "인증이 필요합니다.").model_dump(mode="json", exclude_none=True)
+        response = JSONResponse(status_code=401, content=payload)
+        await response(scope, receive, send)
+        return
 
 
