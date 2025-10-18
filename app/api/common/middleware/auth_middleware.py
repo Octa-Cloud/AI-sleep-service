@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import jwt
 from typing import Callable, List
 
 from fastapi import Request
@@ -29,20 +30,21 @@ class AuthMiddleware:
 
         # Check if nginx auth-url has already validated the request
         # If the request reaches here, nginx auth-url was successful
-        auth_header = request.headers.get(self.token_provider._header_name)
+        auth_header = request.headers.get("Authorization")
         if auth_header:
             try:
                 token = self.token_provider.extract_from_header(auth_header)
                 # Decode JWT without verification since nginx already validated it
-                import jwt
                 claims = jwt.decode(token, options={"verify_signature": False, "verify_exp": False})
-                user_no = claims.get(self.token_provider._id_claim)
+                user_no = claims.get("id")
                 if user_no:
                     request.state.user_no = int(user_no)
                     request.state.claims = claims
                     await self.app(scope, receive, send)
                     return
-            except Exception:
+            except Exception as e:
+                # Log the error for debugging
+                print(f"AuthMiddleware error: {e}")
                 # If token extraction fails, fall through to error handling
                 pass
         
