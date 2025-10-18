@@ -31,35 +31,38 @@ class TokenProvider:
             raise UnauthorizedApiException()
 
     def verify_and_decode(self, token: str) -> Dict[str, Any]:
-        logger.debug(f"DEBUG: TokenProvider.verify_and_decode - token: {token}")
-        logger.debug(f"DEBUG: TokenProvider.verify_and_decode - secret: {self._secret[:10]}...")
-        logger.debug(f"DEBUG: TokenProvider.verify_and_decode - algorithm: {self._algorithm}")
+        print(f"TokenProvider.verify_and_decode: token: {token}")
+        print(f"TokenProvider.verify_and_decode: secret: {self._secret[:10]}...")
+        print(f"TokenProvider.verify_and_decode: algorithm: {self._algorithm}")
         
         if not token:
-            logger.error("DEBUG: TokenProvider.verify_and_decode - token is empty")
+            print("TokenProvider.verify_and_decode: token is empty")
             raise UnauthorizedApiException()
 
         try:
+            print("TokenProvider.verify_and_decode: Starting JWT decode")
             claims: Dict[str, Any] = jwt.decode(
                 token,
                 key=self._secret,
                 algorithms=self._algorithm,
                 options={"require": ["exp"], "verify_exp": True},
             )
-            logger.debug(f"DEBUG: TokenProvider.verify_and_decode - claims: {claims}")
+            print(f"TokenProvider.verify_and_decode: claims: {claims}")
             return claims
         except ExpiredSignatureError as e:
-            logger.error(f"DEBUG: TokenProvider.verify_and_decode - token expired: {e}")
+            print(f"TokenProvider.verify_and_decode: token expired: {e}")
             exc = UnauthorizedApiException()
             exc.message = "토큰이 만료되었습니다."
             raise exc
         except InvalidTokenError as e:
-            logger.error(f"DEBUG: TokenProvider.verify_and_decode - invalid token: {e}")
+            print(f"TokenProvider.verify_and_decode: invalid token: {e}")
             exc = UnauthorizedApiException()
             exc.message = "유효하지 않은 토큰입니다."
             raise exc
         except Exception as e:
-            logger.error(f"DEBUG: TokenProvider.verify_and_decode - unexpected error: {e}")
+            print(f"TokenProvider.verify_and_decode: unexpected error: {e}")
+            import traceback
+            print(f"TokenProvider.verify_and_decode: traceback: {traceback.format_exc()}")
             raise UnauthorizedApiException()
 
     def get_claims(self, token: str) -> Dict[str, Any]:
@@ -76,23 +79,23 @@ class TokenProvider:
 
     # Helpers using env-driven config
     def extract_from_header(self, header_value: Optional[str]) -> str:
-        logger.debug(f"DEBUG: TokenProvider.extract_from_header - header_value: {header_value}")
-        logger.debug(f"DEBUG: TokenProvider.extract_from_header - bearer_prefix: {self._bearer_prefix}")
+        print(f"TokenProvider.extract_from_header: header_value: {header_value}")
+        print(f"TokenProvider.extract_from_header: bearer_prefix: {self._bearer_prefix}")
         
         if not header_value:
-            logger.error("DEBUG: TokenProvider.extract_from_header - header_value is empty")
+            print("TokenProvider.extract_from_header: header_value is empty")
             raise UnauthorizedApiException()
         prefix = f"{self._bearer_prefix} "
         if not header_value.startswith(prefix):
-            logger.error(f"DEBUG: TokenProvider.extract_from_header - header does not start with prefix: {prefix}")
+            print(f"TokenProvider.extract_from_header: header does not start with prefix: {prefix}")
             exc = UnauthorizedApiException()
             exc.message = "인증 헤더 형식이 올바르지 않습니다."
             raise exc
         token = header_value[len(prefix) :].strip()
         if not token:
-            logger.error("DEBUG: TokenProvider.extract_from_header - extracted token is empty")
+            print("TokenProvider.extract_from_header: extracted token is empty")
             raise UnauthorizedApiException()
-        logger.debug(f"DEBUG: TokenProvider.extract_from_header - extracted token: {token}")
+        print(f"TokenProvider.extract_from_header: extracted token: {token}")
         return token
 
     def validate_access_subject(self, claims: Dict[str, Any]) -> None:

@@ -27,17 +27,24 @@ app = FastAPI()
 app.container = di_container
 app.state.container = di_container
 
+print("main.py: Adding AuthMiddleware")
 app.add_middleware(AuthMiddleware, token_provider=TokenProvider())
+print("main.py: AuthMiddleware added successfully")
 register_exception_handlers(app)
+print("main.py: Exception handlers registered")
 
 # Health check endpoint (no authentication required)
 @app.get("/health")
 async def health_check():
     return {"status": "healthy"}
 
+print("main.py: Including routers")
 app.include_router(SessionRouter)
+print("main.py: SessionRouter included")
 app.include_router(BrainwaveRouter)
+print("main.py: BrainwaveRouter included")
 app.include_router(SoundRouter)
+print("main.py: SoundRouter included")
 
 _consumers = KafkaConsumerOrchestrator(container=di_container)
 

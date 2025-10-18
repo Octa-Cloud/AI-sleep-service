@@ -17,13 +17,18 @@ class AuthMiddleware:
         self.whitelist = ["/health", "/docs", "/openapi.json", "/redoc"]
 
     async def __call__(self, scope, receive, send):
+        print(f"AuthMiddleware: __call__ started, scope type: {scope.get('type')}")
+        
         if scope["type"] != "http":
+            print(f"AuthMiddleware: Non-HTTP request, passing through")
             await self.app(scope, receive, send)
             return
 
         request = Request(scope, receive=receive)
         
-        print(f"AuthMiddleware: Processing request to {request.url.path}")
+        print(f"AuthMiddleware: Processing HTTP request to {request.url.path}")
+        print(f"AuthMiddleware: Request method: {request.method}")
+        print(f"AuthMiddleware: Request headers: {dict(request.headers)}")
         
         # Skip authentication for whitelisted paths
         if request.url.path in self.whitelist:
@@ -32,16 +37,28 @@ class AuthMiddleware:
             return
 
         # Direct JWT token validation (nginx auth-url disabled)
+        print(f"AuthMiddleware: Starting JWT token validation")
         auth_header = request.headers.get("Authorization")
+        print(f"AuthMiddleware: Authorization header: {auth_header}")
+        
         if auth_header:
             try:
+                print(f"AuthMiddleware: Extracting token from header")
                 token = self.token_provider.extract_from_header(auth_header)
+                print(f"AuthMiddleware: Extracted token: {token[:50]}...")
+                
+                print(f"AuthMiddleware: Verifying JWT token")
                 # Verify JWT token with signature and expiration
                 claims = self.token_provider.verify_and_decode(token)
+                print(f"AuthMiddleware: Token claims: {claims}")
+                
                 user_no = claims.get("id")
+                print(f"AuthMiddleware: User ID from claims: {user_no}")
+                
                 if user_no:
                     request.state.user_no = int(user_no)
                     request.state.claims = claims
+                    print(f"AuthMiddleware: Successfully authenticated user {user_no}, proceeding to app")
                     await self.app(scope, receive, send)
                     return
                 else:
@@ -53,6 +70,8 @@ class AuthMiddleware:
             except Exception as e:
                 # Log the error for debugging
                 print(f"AuthMiddleware error: {e}")
+                import traceback
+                print(f"AuthMiddleware error traceback: {traceback.format_exc()}")
                 return JSONResponse(
                     status_code=401,
                     content={"message": "Invalid token"}
