@@ -4,6 +4,7 @@ from typing import Iterable, List
 
 from sqlalchemy.orm import Session
 from sqlalchemy.dialects.mysql import insert as mysql_insert
+from sqlalchemy import select
 
 from app.api.domain.domain.entity.analyzed_data_entity import SleepLevel
 from app.api.domain.domain.repository.sleep_level_repository import SleepLevelRepository
@@ -37,5 +38,17 @@ class SqlAlchemySleepLevelRepository(SleepLevelRepository):
         )
         self._session.execute(upsert_stmt)
         return len(rows)
+
+    def get_by_session(self, sleep_session_no: int) -> List[SleepLevelData]:
+        stmt = (
+            select(SleepLevel)
+            .where(SleepLevel.sleep_session_no == int(sleep_session_no))
+            .order_by(SleepLevel.recorded_at.asc())
+        )
+        results = self._session.execute(stmt).scalars().all()
+        return [
+            SleepLevelData(level=int(r.level), recorded_at=r.recorded_at)
+            for r in results
+        ]
 
 
