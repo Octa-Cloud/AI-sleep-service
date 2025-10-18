@@ -11,6 +11,7 @@ def main() -> int:
     proto_files = [
         os.path.join(proto_dir, "brainwave.proto"),
         os.path.join(proto_dir, "sound.proto"),
+        os.path.join(proto_dir, "report.proto"),
     ]
 
     try:
@@ -19,21 +20,18 @@ def main() -> int:
         print("grpcio-tools is not installed. Install with: pip install grpcio-tools", file=sys.stderr)
         return 1
 
-    code = 0
-    for pf in proto_files:
+    for proto_file in proto_files:
         args = [
             "protoc",
             f"-I{proto_dir}",
             f"--python_out={proto_dir}",
             f"--grpc_python_out={proto_dir}",
-            pf,
+            proto_file,
         ]
-        rc = protoc.main(args)
-        if rc != 0:
-            code = rc
-    if code != 0:
-        print(f"protoc failed with exit code {code}", file=sys.stderr)
-        return int(code)
+        code = protoc.main(args)
+        if code != 0:
+            print(f"protoc failed with exit code {code} for {os.path.basename(proto_file)}", file=sys.stderr)
+            return int(code)
     print(f"Generated protobufs under {proto_dir}")
     return 0
 
