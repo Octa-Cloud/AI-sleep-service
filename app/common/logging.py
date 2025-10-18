@@ -63,6 +63,27 @@ def configure_logging(service_name: str) -> None:
             "level": level,
             "handlers": ["console"],
         },
+        # Suppress noisy Azure SDK HTTP/identity logs in FastAPI output
+        "loggers": {
+            # HTTP request/response wire logs
+            "azure.core.pipeline.policies.http_logging_policy": {
+                "level": "WARNING",
+                "handlers": ["console"],
+                "propagate": False,
+            },
+            # Identity verbose info (e.g., Environment/ManagedIdentity selection)
+            "azure.identity": {
+                "level": "WARNING",
+                "handlers": ["console"],
+                "propagate": False,
+            },
+            # Catch-all Azure namespace as a safety net
+            "azure": {
+                "level": "WARNING",
+                "handlers": ["console"],
+                "propagate": False,
+            },
+        },
     }
 
     logging.config.dictConfig(config)
