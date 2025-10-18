@@ -38,4 +38,9 @@ class SleepLevelService:
         sleep_level_repo: SleepLevelRepository = self._sleep_level_repo_factory(session=session)
         sleep_level_repo.save_bulk(entities)
 
+    @session_scope
+    def get_levels_by_session(self, sleep_session_no: int, session=None) -> List[SleepLevelData]:
+        sleep_level_repo: SleepLevelRepository = self._sleep_level_repo_factory(session=session)
+        return sleep_level_repo.get_by_session(int(sleep_session_no))
+
 
