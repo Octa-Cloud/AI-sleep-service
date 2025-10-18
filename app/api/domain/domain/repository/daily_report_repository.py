@@ -18,8 +18,7 @@ class DailyReportRepository(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def upsert_daily_report(self, sleep_session_no: int, user_no: int, created_at, memo: str | None, score: int | None, allow_update: bool) -> None:
-        """Insert daily report; if exists and allow_update is True, update memo/score. If allow_update is False, raise on duplicate."""
+    def upsert_daily_report(self, sleep_session_no: int, user_no: int, created_at, memo: str | None, score: int | None) -> None:
         raise NotImplementedError
 
 
