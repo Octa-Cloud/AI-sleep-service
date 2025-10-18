@@ -31,38 +31,27 @@ class TokenProvider:
             raise UnauthorizedApiException()
 
     def verify_and_decode(self, token: str) -> Dict[str, Any]:
-        print(f"TokenProvider.verify_and_decode: token: {token}")
-        print(f"TokenProvider.verify_and_decode: secret: {self._secret[:10]}...")
-        print(f"TokenProvider.verify_and_decode: algorithm: {self._algorithm}")
-        
         if not token:
-            print("TokenProvider.verify_and_decode: token is empty")
             raise UnauthorizedApiException()
 
         try:
-            print("TokenProvider.verify_and_decode: Starting JWT decode")
             claims: Dict[str, Any] = jwt.decode(
                 token,
                 key=self._secret,
                 algorithms=self._algorithm,
                 options={"require": ["exp"], "verify_exp": True},
             )
-            print(f"TokenProvider.verify_and_decode: claims: {claims}")
             return claims
         except ExpiredSignatureError as e:
-            print(f"TokenProvider.verify_and_decode: token expired: {e}")
             exc = UnauthorizedApiException()
             exc.message = "토큰이 만료되었습니다."
             raise exc
         except InvalidTokenError as e:
-            print(f"TokenProvider.verify_and_decode: invalid token: {e}")
             exc = UnauthorizedApiException()
             exc.message = "유효하지 않은 토큰입니다."
             raise exc
         except Exception as e:
-            print(f"TokenProvider.verify_and_decode: unexpected error: {e}")
-            import traceback
-            print(f"TokenProvider.verify_and_decode: traceback: {traceback.format_exc()}")
+            logger.error(f"Token verification failed: {e}")
             raise UnauthorizedApiException()
 
     def get_claims(self, token: str) -> Dict[str, Any]:
@@ -79,23 +68,16 @@ class TokenProvider:
 
     # Helpers using env-driven config
     def extract_from_header(self, header_value: Optional[str]) -> str:
-        print(f"TokenProvider.extract_from_header: header_value: {header_value}")
-        print(f"TokenProvider.extract_from_header: bearer_prefix: {self._bearer_prefix}")
-        
         if not header_value:
-            print("TokenProvider.extract_from_header: header_value is empty")
             raise UnauthorizedApiException()
         prefix = f"{self._bearer_prefix} "
         if not header_value.startswith(prefix):
-            print(f"TokenProvider.extract_from_header: header does not start with prefix: {prefix}")
             exc = UnauthorizedApiException()
             exc.message = "인증 헤더 형식이 올바르지 않습니다."
             raise exc
         token = header_value[len(prefix) :].strip()
         if not token:
-            print("TokenProvider.extract_from_header: extracted token is empty")
             raise UnauthorizedApiException()
-        print(f"TokenProvider.extract_from_header: extracted token: {token}")
         return token
 
     def validate_access_subject(self, claims: Dict[str, Any]) -> None:

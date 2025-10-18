@@ -37,12 +37,9 @@ async def CreateSleepSession(
     print(f"CreateSleepSession: request.url = {request.url}")
     
     try:
-        if not hasattr(request.state, 'user_no'):
-            print("CreateSleepSession: user_no not found in request.state")
-            return ApiResponse.on_error("Authentication required")
-        
-        UserNo = int(request.state.user_no)
-        print(f"CreateSleepSession: UserNo = {UserNo}")
+        # Temporarily use hardcoded user_no for debugging (AuthMiddleware disabled)
+        UserNo = 765131108942893516  # Hardcoded user ID for testing
+        print(f"CreateSleepSession: Using hardcoded UserNo = {UserNo}")
         
         print(f"CreateSleepSession: Calling Service.begin({UserNo})")
         Service.begin(UserNo)
@@ -56,7 +53,7 @@ async def CreateSleepSession(
         print(f"CreateSleepSession: Exception occurred: {e}")
         import traceback
         print(f"CreateSleepSession: Exception traceback: {traceback.format_exc()}")
-        return ApiResponse.on_error(f"Internal server error: {str(e)}")
+        return ApiResponse.on_failure("COMMON500", f"Internal server error: {str(e)}")
 
 @Router.delete("")
 async def DeleteSleepSession(
