@@ -11,8 +11,6 @@ from app.api.domain.domain.vo.report_value_object import (
     DailyReportData,
     AnalysisDetailData,
     AnalysisStepData,
-    Difficulty,
-    Effect,
 )
 from app.api.domain.domain.entity.sleep_session_entity import (
     DailyReport as DailyReportEntity,
@@ -37,8 +35,8 @@ class SqlAlchemyDailyReportRepository(DailyReportRepository):
                 AnalysisDetailData(
                     title=str(d.title),
                     description=str(d.description),
-                    difficulty=Difficulty[d.difficulty.name],
-                    effect=Effect[d.effect.name],
+                    difficulty=str(d.difficulty.value),
+                    effect=str(d.effect.value),
                     steps=steps,
                 )
             )
@@ -109,7 +107,7 @@ class SqlAlchemyDailyReportRepository(DailyReportRepository):
             out.append(self._row_to_vo(r, std_map.get(int(r.sleep_session_no)), details_by_session.get(int(r.sleep_session_no), []), steps_by_detail))
         return out
 
-    def upsert_daily_report(self, sleep_session_no: int, user_no: int, created_at, memo: str | None, score: int | None, allow_update: bool) -> None:
+    def upsert_daily_report(self, sleep_session_no: int, user_no: int, created_at, memo: str | None, score: int | None) -> None:
         dr = self._session.get(DailyReportEntity, int(sleep_session_no))
         if dr is None:
             dr = DailyReportEntity(
@@ -122,12 +120,6 @@ class SqlAlchemyDailyReportRepository(DailyReportRepository):
             self._session.add(dr)
             self._session.flush()
             return
-        if not allow_update:
-            from sqlalchemy.exc import IntegrityError
-            raise IntegrityError("duplicate", params=None, orig=None)  # signal duplicate not allowed
-        # update memo/score only
-        if memo is not None:
-            dr.memo = str(memo)
         if score is not None:
             dr.score = int(score)
         self._session.flush()
