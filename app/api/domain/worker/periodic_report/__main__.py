@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import os
+import logging
 from datetime import timedelta
 
 from aiokafka import AIOKafkaConsumer
@@ -58,24 +59,53 @@ async def run() -> int:
     def _repo_factory(session=None):
         return SqlAlchemyDailyReportRepository(session=session)
     pipeline = PeriodicReportPipelineService(DailyReportService(repo_factory=_repo_factory), PeriodicReportAgentService())
+    logger = logging.getLogger("report.worker.periodic")
 
     async def _handle(value: bytes) -> None:
-        obj = rp.PeriodicReportInput()  # type: ignore[attr-defined]
-        obj.ParseFromString(value)
+        try:
+            obj = rp.PeriodicReportInput()  # type: ignore[attr-defined]
+            obj.ParseFromString(value)
 
-        persist = await pipeline.build_persist_request(obj)
+            persist = await pipeline.build_persist_request(obj)
 
-        trace_id = str(generate_tsid_int())
-        key = f"{obj.session_no}:{trace_id}"
-        headers = {
-            "trace_id": trace_id,
-            "session_no": str(int(obj.session_no)),
-            "user_no": str(user_no),
-            "sleep_date": sleep_date,
-            "version": "1",
-            "content-type": "application/x-protobuf;msg=PeriodicReportPersistRequest",
-        }
-        producer.send_bytes(topic_out, key=key, value_bytes=persist.SerializeToString(), headers=headers)
+            trace_id = str(generate_tsid_int())
+            key = f"{obj.session_no}:{trace_id}"
+            user_no = int(obj.user_no)
+            sleep_date = str(obj.sleep_date)
+            headers = {
+                "trace_id": trace_id,
+                "session_no": str(int(obj.session_no)),
+                "user_no": str(user_no),
+                "sleep_date": sleep_date,
+                "version": "1",
+                "content-type": "application/x-protobuf;msg=PeriodicReportPersistRequest",
+            }
+            # Map enum to readable name without relying on .name
+            dtype_name = "WEEKLY" if int(obj.duration_type) == int(rp.DurationType.WEEKLY) else "MONTHLY"
+            logger.info(
+                "periodic_worker_recv",
+                extra={
+                    "session_no": int(obj.session_no),
+                    "user_no": user_no,
+                    "sleep_date": sleep_date,
+                    "duration_type": dtype_name,
+                    "topic": topic_in,
+                },
+            )
+            producer.send_bytes(topic_out, key=key, value_bytes=persist.SerializeToString(), headers=headers)
+            logger.info(
+                "periodic_worker_emit_persist",
+                extra={
+                    "session_no": int(obj.session_no),
+                    "user_no": user_no,
+                    "sleep_date": sleep_date,
+                    "trace_id": trace_id,
+                    "topic": topic_out,
+                },
+            )
+        except Exception:
+            # include full traceback for diagnosis
+            logger.exception("periodic_worker_error", extra={"topic": topic_in})
 
     runner = KafkaStageRunner(
         consumer=consumer,
