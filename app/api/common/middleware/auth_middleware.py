@@ -27,8 +27,8 @@ class AuthMiddleware:
             await self.app(scope, receive, send)
             return
 
-        # nginx auth-url has already validated the request
-        # Just extract userNo from the JWT token without validation
+        # Check if nginx auth-url has already validated the request
+        # If the request reaches here, nginx auth-url was successful
         auth_header = request.headers.get(self.token_provider._header_name)
         if auth_header:
             try:
@@ -45,12 +45,10 @@ class AuthMiddleware:
             except Exception:
                 # If token extraction fails, fall through to error handling
                 pass
-
-        # If no valid token found, return 401
-        from app.api.domain.application.dto.response.api_response import ApiResponse
-        payload = ApiResponse.on_failure("AUTH401", "인증이 필요합니다.").model_dump(mode="json", exclude_none=True)
-        response = JSONResponse(status_code=401, content=payload)
-        await response(scope, receive, send)
+        
+        # If no Authorization header, but request reached here, nginx auth-url passed
+        # Allow the request to proceed (nginx already validated it)
+        await self.app(scope, receive, send)
         return
 
 
