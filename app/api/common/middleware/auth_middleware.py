@@ -23,19 +23,21 @@ class AuthMiddleware:
 
         request = Request(scope, receive=receive)
         
+        print(f"AuthMiddleware: Processing request to {request.url.path}")
+        
         # Skip authentication for whitelisted paths
         if request.url.path in self.whitelist:
+            print(f"AuthMiddleware: Skipping authentication for whitelisted path: {request.url.path}")
             await self.app(scope, receive, send)
             return
 
-        # Check if nginx auth-url has already validated the request
-        # If the request reaches here, nginx auth-url was successful
+        # Direct JWT token validation (nginx auth-url disabled)
         auth_header = request.headers.get("Authorization")
         if auth_header:
             try:
                 token = self.token_provider.extract_from_header(auth_header)
-                # Decode JWT without verification since nginx already validated it
-                claims = jwt.decode(token, options={"verify_signature": False, "verify_exp": False})
+                # Verify JWT token with signature and expiration
+                claims = self.token_provider.verify_and_decode(token)
                 user_no = claims.get("id")
                 if user_no:
                     request.state.user_no = int(user_no)
@@ -56,8 +58,7 @@ class AuthMiddleware:
                     content={"message": "Invalid token"}
                 )
         
-        # If no Authorization header, but request reached here, nginx auth-url passed
-        # However, we still need user_no for the application to work
+        # No Authorization header found
         print(f"AuthMiddleware error: No Authorization header found")
         return JSONResponse(
             status_code=401,

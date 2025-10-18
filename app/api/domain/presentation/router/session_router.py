@@ -21,6 +21,10 @@ async def CreateSleepSession(
     request: Request,
     Service: SleepSessionService = Depends(_get_session_service),
 ):
+    print(f"CreateSleepSession: request.state = {request.state.__dict__}")
+    if not hasattr(request.state, 'user_no'):
+        print("CreateSleepSession: user_no not found in request.state")
+        return ApiResponse.on_error("Authentication required")
     UserNo = int(request.state.user_no)
     Service.begin(UserNo)
     return ApiResponse.on_success()
