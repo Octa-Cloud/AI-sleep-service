@@ -9,6 +9,8 @@ from app.api.domain.consumer.brainwave.aggregator_handler import BrainwaveAggreg
 from app.api.domain.consumer.brainwave.db_writer_handler import BrainwaveDbWriterHandler
 from app.api.domain.consumer.sound.aggregator_handler import SoundAggregatorHandler
 from app.api.domain.consumer.sound.db_writer_handler import SoundDbWriterHandler
+from app.api.domain.consumer.report.daily_db_writer_handler import DailyReportDbWriterHandler
+from app.api.domain.consumer.report.periodic_db_writer_handler import PeriodicReportDbWriterHandler
 
 
 class KafkaSubscriptionsFactory:
@@ -26,6 +28,7 @@ class KafkaSubscriptionsFactory:
 
         agg_started = asyncio.Event()
         db_started = asyncio.Event()
+        report_started = asyncio.Event()
 
         analyzed_topic = config.TOPIC_BRAINWAVE_ANALYZED_EPOCH
         agg_group = config.GROUP_BRAINWAVE_AGGREGATOR
@@ -47,10 +50,27 @@ class KafkaSubscriptionsFactory:
             AsyncKafkaConsumerRunner(brokers, persist_topic, db_group, handler=db_handler, dlq_topic=dlq_topic, started_event=db_started),
             AsyncKafkaConsumerRunner(brokers, sound_event_topic, sound_agg_group, handler=sound_agg_handler, dlq_topic=dlq_topic, started_event=sound_agg_started),
             AsyncKafkaConsumerRunner(brokers, sound_persist_topic, sound_db_group, handler=sound_db_handler, dlq_topic=dlq_topic, started_event=sound_db_started),
+            # Report DB writer consumers (daily + periodic persist requests)
+            AsyncKafkaConsumerRunner(
+                brokers,
+                config.TOPIC_DAILY_REPORT_PERSIST_REQUESTS,
+                config.GROUP_DAILY_REPORT_DB_WRITER,
+                handler=DailyReportDbWriterHandler(service=self._container.daily_report_service_factory()),
+                dlq_topic=config.TOPIC_REPORT_DLQ,
+                started_event=report_started,
+            ),
+            AsyncKafkaConsumerRunner(
+                brokers,
+                config.TOPIC_PERIODIC_REPORT_PERSIST_REQUESTS,
+                config.GROUP_PERIODIC_REPORT_DB_WRITER,
+                handler=PeriodicReportDbWriterHandler(service=self._container.periodic_report_service_factory()),
+                dlq_topic=config.TOPIC_REPORT_DLQ,
+                started_event=report_started,
+            ),
         ]
 
         # store for orchestrator readiness checks
-        self._started_events = [agg_started, db_started, sound_agg_started, sound_db_started]
+        self._started_events = [agg_started, db_started, sound_agg_started, sound_db_started, report_started]
         return consumers
 
     def get_started_events(self) -> list[asyncio.Event]:
