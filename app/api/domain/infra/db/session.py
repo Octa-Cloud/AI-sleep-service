@@ -14,7 +14,7 @@ def _build_db_url() -> str:
     password = os.getenv("DB_PASSWORD", "")
     host = os.getenv("DB_HOST", "127.0.0.1")
     port = int(os.getenv("DB_PORT", "3306"))
-    database = os.getenv("DB_NAME", "sleep")
+    database = os.getenv("DB_NAME", "mong-analysis")
     return f"mysql+pymysql://{user}:{password}@{host}:{port}/{database}?charset=utf8mb4"
 
 
