@@ -117,3 +117,4 @@ CREATE TABLE IF NOT EXISTS `analyzed_sleep_levels` (
 
 -- Show created tables
 SHOW TABLES;
+

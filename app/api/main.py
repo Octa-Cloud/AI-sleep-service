@@ -2,6 +2,7 @@
 import os
 import asyncio
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 
 from app.common.logging import configure_logging
 from app.api.domain.presentation.router.session_router import Router as SessionRouter
@@ -21,6 +22,38 @@ from app.api.domain.worker.sound_analyzer.__main__ import run as run_sound_analy
 configure_logging("fastapi-api")
 
 app = FastAPI()
+
+# CORS 설정
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        "http://localhost:5173",
+        "https://www.mong.live",
+        "http://www.mong.live",
+    ],
+    allow_credentials=True,
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH", "HEAD"],
+    allow_headers=[
+        "Authorization",
+        "Content-Type",
+        "X-Requested-With",
+        "Accept",
+        "Origin",
+        "Access-Control-Request-Method",
+        "Access-Control-Request-Headers",
+        "X-User-Id",
+        "Cache-Control",
+        "Pragma"
+    ],
+    expose_headers=[
+        "Authorization",
+        "Content-Type",
+        "X-User-Id",
+        "Access-Control-Allow-Origin",
+        "Access-Control-Allow-Credentials"
+    ],
+    max_age=3600,
+)
 
 app.container = di_container
 app.state.container = di_container
@@ -45,16 +78,16 @@ async def _start_consumers() -> None:
             await producer.start()
         except Exception:
             pass
-    # Kafka 비활성화로 인한 degrade 상태 해결
-    # if config.KAFKA_ENABLED:
-    #     _consumers.start_all()
-    #     app.state.worker_tasks = [
-    #         asyncio.create_task(run_splitter()),
-    #         asyncio.create_task(run_analyzer()),
-    #         asyncio.create_task(run_sound_splitter()),
-    #         asyncio.create_task(run_sound_analyzer()),
-    #     ]
-    #     await _consumers.wait_ready()
+    # Kafka 활성화
+    if config.KAFKA_ENABLED:
+        _consumers.start_all()
+        app.state.worker_tasks = [
+            asyncio.create_task(run_splitter()),
+            asyncio.create_task(run_analyzer()),
+            asyncio.create_task(run_sound_splitter()),
+            asyncio.create_task(run_sound_analyzer()),
+        ]
+        await _consumers.wait_ready()
 
 
 @app.on_event("shutdown")
