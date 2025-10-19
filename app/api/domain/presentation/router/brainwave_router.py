@@ -5,6 +5,7 @@ from fastapi import APIRouter, UploadFile, File, Depends, Request
 
 from app.api.domain.application.dto.response.api_response import ApiResponse
 from app.api.common.dependencies import Container
+from app.api.common.dependencies.auth import get_user_no
 from app.api.domain.application.usecase.brainwave.brainwave_analyze_use_case import BrainwaveAnalyzeUseCase
 from app.api.domain.application.service.sleep_session.sleep_session_service import SleepSessionService
 from app.api.common.exception.custom.session_exceptions import SleepSessionNotFoundApiException
@@ -26,10 +27,9 @@ async def SubmitBrainwave(
     file_instance: Annotated[UploadFile, File(...)],
     use_case: BrainwaveAnalyzeUseCase = Depends(_get_brainwave_usecase),
     session_service: SleepSessionService = Depends(_get_session_service),
-    request: Request = None,
+    user_no: int = Depends(get_user_no),
 ):
     edf_bytes = await file_instance.read()
-    user_no = int(request.state.user_no)
 
     current_sleep_session_no = session_service.get_current_sleep_session_no(user_no)
     if current_sleep_session_no is None:

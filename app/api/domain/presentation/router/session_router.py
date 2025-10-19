@@ -7,6 +7,7 @@ from fastapi import APIRouter, Form, Request, Depends
 
 from app.api.domain.application.dto.response.api_response import ApiResponse
 from app.api.common.dependencies import Container
+from app.api.common.dependencies.auth import get_user_no
 from app.api.domain.application.service.sleep_session.sleep_session_service import SleepSessionService
 
 
@@ -30,17 +31,15 @@ def _get_session_service(request: Request) -> SleepSessionService:
 async def CreateSleepSession(
     request: Request,
     Service: SleepSessionService = Depends(_get_session_service),
+    UserNo: int = Depends(get_user_no),
 ):
     print(f"CreateSleepSession: Function called")
     print(f"CreateSleepSession: request.state = {request.state.__dict__}")
     print(f"CreateSleepSession: request.headers = {dict(request.headers)}")
     print(f"CreateSleepSession: request.url = {request.url}")
+    print(f"CreateSleepSession: Extracted UserNo = {UserNo}")
     
     try:
-        # Temporarily use hardcoded user_no for debugging (AuthMiddleware disabled)
-        UserNo = 765131108942893516  # Hardcoded user ID for testing
-        print(f"CreateSleepSession: Using hardcoded UserNo = {UserNo}")
-        
         print(f"CreateSleepSession: Calling Service.begin({UserNo})")
         Service.begin(UserNo)
         print(f"CreateSleepSession: Service.begin completed successfully")
@@ -59,7 +58,7 @@ async def CreateSleepSession(
 async def DeleteSleepSession(
     request: Request,
     Service: SleepSessionService = Depends(_get_session_service),
+    UserNo: int = Depends(get_user_no),
 ):
-    UserNo = int(request.state.user_no)
     Service.finish(UserNo)
     return ApiResponse.on_success()
